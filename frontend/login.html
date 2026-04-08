@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connection Manager - Login</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-dark: #0a0e1a;
+            --bg-card: rgba(15, 20, 40, 0.85);
+            --border: rgba(59, 130, 246, 0.18);
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.3);
+            --text: #e2e8f0;
+            --muted: #64748b;
+            --success: #4ade80;
+            --danger: #f87171;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: var(--bg-dark);
+            position: relative;
+            overflow: hidden;
+            color: var(--text);
+        }
+
+        /* ── Animated mesh gradient background ── */
+        .bg-gradient {
+            position: fixed; inset: 0; z-index: 0;
+            background:
+                radial-gradient(ellipse 800px 600px at 20% 20%, rgba(59,130,246,0.15), transparent),
+                radial-gradient(ellipse 600px 500px at 80% 80%, rgba(139,92,246,0.10), transparent),
+                radial-gradient(ellipse 500px 400px at 50% 50%, rgba(16,185,129,0.06), transparent);
+            animation: bgShift 12s ease-in-out infinite alternate;
+        }
+        @keyframes bgShift {
+            0%   { filter: hue-rotate(0deg);   opacity: 1; }
+            50%  { filter: hue-rotate(15deg);  opacity: .85; }
+            100% { filter: hue-rotate(-10deg); opacity: 1; }
+        }
+
+        /* ── Floating particles ── */
+        .particles {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+        }
+        .particle {
+            position: absolute; border-radius: 50%;
+            background: rgba(59, 130, 246, 0.25);
+            animation: particleFloat linear infinite;
+        }
+        @keyframes particleFloat {
+            0%   { transform: translateY(100vh) scale(0); opacity: 0; }
+            10%  { opacity: 1; }
+            90%  { opacity: 1; }
+            100% { transform: translateY(-10vh) scale(1); opacity: 0; }
+        }
+
+        /* ── Grid lines overlay ── */
+        .grid-lines {
+            position: fixed; inset: 0; z-index: 0; pointer-events: none;
+            background-image:
+                linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            animation: gridPulse 8s ease-in-out infinite;
+        }
+        @keyframes gridPulse {
+            0%, 100% { opacity: .4; }
+            50%      { opacity: .7; }
+        }
+
+        /* ── Login container ── */
+        .login-container {
+            width: 100%;
+            max-width: 440px;
+            padding: 0 20px;
+            position: relative;
+            z-index: 1;
+            animation: slideUp .7s cubic-bezier(.16,1,.3,1) both;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(40px) scale(.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .login-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px) saturate(1.4);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 44px 38px;
+            box-shadow:
+                0 0 60px rgba(59,130,246,.08),
+                0 25px 50px rgba(0,0,0,0.4),
+                inset 0 1px 0 rgba(255,255,255,.04);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Card top glow bar */
+        .login-card::before {
+            content: '';
+            position: absolute; top: 0; left: 20%; right: 20%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), rgba(139,92,246,0.8), transparent);
+            border-radius: 0 0 4px 4px;
+            animation: glowBar 3s ease-in-out infinite;
+        }
+        @keyframes glowBar {
+            0%, 100% { opacity: .6; left: 20%; right: 20%; }
+            50%      { opacity: 1;  left: 10%; right: 10%; }
+        }
+
+        /* ── Logo ── */
+        .logo { margin-bottom: 28px; }
+
+        .logo-img {
+            width: 120px; height: auto;
+            display: none;
+            margin: 0 auto 14px;
+            filter: drop-shadow(0 4px 20px rgba(59,130,246,.25));
+            animation: logoPulse 4s ease-in-out infinite;
+        }
+        @keyframes logoPulse {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 4px 20px rgba(59,130,246,.25)); }
+            50%      { transform: scale(1.03); filter: drop-shadow(0 6px 28px rgba(59,130,246,.35)); }
+        }
+
+        .logo-fallback {
+            display: none;
+            font-size: 3.2rem;
+            color: var(--accent);
+            margin: 0 auto 14px;
+            animation: logoPulse 4s ease-in-out infinite;
+        }
+
+        .logo h1 {
+            color: var(--text);
+            font-size: 1.6rem;
+            margin-bottom: 4px;
+            letter-spacing: .5px;
+            font-weight: 700;
+        }
+
+        .logo p {
+            color: var(--muted);
+            font-size: 0.88rem;
+        }
+
+        /* ── Form ── */
+        .form-group {
+            margin-bottom: 18px;
+            text-align: left;
+            animation: fadeInField .5s ease both;
+        }
+        .form-group:nth-child(1) { animation-delay: .15s; }
+        .form-group:nth-child(2) { animation-delay: .25s; }
+        @keyframes fadeInField {
+            from { opacity: 0; transform: translateX(-12px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 7px;
+            color: var(--muted);
+            font-weight: 600;
+            font-size: 0.85rem;
+            letter-spacing: .02em;
+        }
+
+        .input-with-icon { position: relative; }
+
+        .input-with-icon i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(148,163,184,.5);
+            transition: color .2s ease;
+        }
+
+        .input-with-icon input {
+            width: 100%;
+            padding: 13px 15px 13px 44px;
+            border: 1px solid rgba(59,130,246,.15);
+            border-radius: 12px;
+            font-size: 0.95rem;
+            transition: all .25s ease;
+            background: rgba(15,23,42,.6);
+            color: var(--text);
+        }
+
+        .input-with-icon input::placeholder { color: rgba(148,163,184,.4); }
+
+        .input-with-icon input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow), 0 0 20px rgba(59,130,246,.1);
+            background: rgba(15,23,42,.8);
+        }
+        .input-with-icon input:focus + i,
+        .input-with-icon:focus-within i {
+            color: var(--accent);
+        }
+
+        /* ── Login button ── */
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #3b82f6, #2563eb, #7c3aed);
+            background-size: 200% 200%;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all .3s ease;
+            margin-top: 12px;
+            position: relative;
+            overflow: hidden;
+            animation: btnGradient 4s ease infinite;
+        }
+        @keyframes btnGradient {
+            0%, 100% { background-position: 0% 50%; }
+            50%      { background-position: 100% 50%; }
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(59,130,246,.35), 0 0 60px rgba(124,58,237,.15);
+        }
+
+        .login-btn:active { transform: translateY(0); }
+
+        .login-btn i { margin-right: 8px; }
+
+        /* Shimmer effect on button */
+        .login-btn::after {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: linear-gradient(transparent, rgba(255,255,255,.08), transparent);
+            transform: rotate(45deg);
+            animation: btnShimmer 3s ease-in-out infinite;
+        }
+        @keyframes btnShimmer {
+            0%   { transform: rotate(45deg) translateX(-100%); }
+            100% { transform: rotate(45deg) translateX(100%); }
+        }
+
+        /* ── Remember / Forgot ── */
+        .remember-forgot {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 14px;
+            font-size: 0.85rem;
+        }
+
+        .remember {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--muted);
+            cursor: pointer;
+        }
+        .remember input[type="checkbox"] {
+            accent-color: var(--accent);
+        }
+
+        .forgot {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+            transition: color .2s ease;
+        }
+        .forgot:hover { color: #60a5fa; text-decoration: underline; }
+
+        /* ── Demo credentials ── */
+        .demo-credentials {
+            background: rgba(59,130,246,.06);
+            border-radius: 12px;
+            padding: 14px;
+            margin-top: 22px;
+            border-left: 3px solid var(--accent);
+            text-align: left;
+        }
+
+        .demo-credentials h4 {
+            color: var(--text);
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .demo-credentials p {
+            color: var(--muted);
+            font-size: 0.8rem;
+            line-height: 1.6;
+            margin: 2px 0;
+        }
+        .demo-credentials strong { color: var(--text); }
+
+        /* ── Footer ── */
+        .footer {
+            margin-top: 22px;
+            color: var(--muted);
+            font-size: 0.78rem;
+        }
+        .footer a { color: var(--accent); text-decoration: none; }
+        .footer a:hover { text-decoration: underline; }
+
+        /* ── Error / Loading ── */
+        .error-message {
+            background: rgba(248,113,113,.1);
+            color: var(--danger);
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 16px;
+            display: none;
+            text-align: left;
+            font-size: 0.88rem;
+            border: 1px solid rgba(248,113,113,.2);
+        }
+        .error-message i { margin-right: 8px; }
+
+        .loading {
+            display: none;
+            color: var(--accent);
+            margin-top: 12px;
+            font-weight: 600;
+            font-size: .9rem;
+        }
+        .loading i { animation: spin 1s linear infinite; }
+
+        @keyframes spin {
+            0%   { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+
+        /* Success flash */
+        @keyframes successFlash {
+            0%   { box-shadow: 0 0 0 0 rgba(74,222,128,.4); }
+            50%  { box-shadow: 0 0 40px 10px rgba(74,222,128,.2); }
+            100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); }
+        }
+
+        @media (max-width: 440px) {
+            .login-card { padding: 30px 24px; }
+            .logo-img { width: 100px; }
+        }
+
+        /* ═══════════════════════════════════════════
+           LIGHT MODE OVERRIDES
+           ═══════════════════════════════════════════ */
+        body.light-mode {
+            --bg-dark: #f4f6f9;
+            --bg-card: rgba(255, 255, 255, 0.92);
+            --border: rgba(148, 163, 184, 0.25);
+            --text: #1e293b;
+            --muted: #64748b;
+            background: #f4f6f9;
+        }
+        body.light-mode .bg-gradient {
+            background:
+                radial-gradient(ellipse 800px 600px at 20% 20%, rgba(59,130,246,0.06), transparent),
+                radial-gradient(ellipse 600px 500px at 80% 80%, rgba(139,92,246,0.04), transparent),
+                radial-gradient(ellipse 500px 400px at 50% 50%, rgba(16,185,129,0.03), transparent);
+        }
+        body.light-mode .grid-lines {
+            background-image:
+                linear-gradient(rgba(148,163,184,0.06) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148,163,184,0.06) 1px, transparent 1px);
+        }
+        body.light-mode .particle { background: rgba(59, 130, 246, 0.12); }
+        body.light-mode .login-card {
+            background: rgba(255, 255, 255, 0.92);
+            border-color: rgba(148, 163, 184, 0.22);
+            box-shadow: 0 0 60px rgba(59,130,246,.04), 0 25px 50px rgba(0,0,0,.06);
+        }
+        body.light-mode .logo h1 { color: #0f172a; }
+        body.light-mode .input-with-icon input {
+            background: #f8fafc;
+            border-color: rgba(148, 163, 184, 0.3);
+            color: #1e293b;
+        }
+        body.light-mode .input-with-icon input::placeholder { color: #94a3b8; }
+        body.light-mode .input-with-icon input:focus {
+            background: #ffffff;
+            border-color: #3b82f6;
+        }
+        body.light-mode .demo-credentials {
+            background: rgba(59,130,246,.04);
+            border-left-color: #3b82f6;
+        }
+        body.light-mode .demo-credentials h4 { color: #0f172a; }
+        body.light-mode .demo-credentials strong { color: #0f172a; }
+        body.light-mode .error-message { background: rgba(248,113,113,.06); border-color: rgba(248,113,113,.15); }
+    </style>
+</head>
+
+<body>
+    <!-- Background layers -->
+    <div class="bg-gradient"></div>
+    <div class="grid-lines"></div>
+    <div class="particles" id="particles"></div>
+
+    <div class="login-container">
+        <div class="login-card" id="loginCard">
+
+            <!-- Logo -->
+            <div class="logo">
+                <img id="appLogo" class="logo-img" src="logo.png" alt="Connection Manager Logo">
+                <div id="logoFallback" class="logo-fallback">
+                    <i class="fas fa-network-wired"></i>
+                </div>
+                <h1>Connection Manager</h1>
+                <p>Netzwerkverwaltung &amp; Dokumentation</p>
+            </div>
+
+            <!-- Error Message -->
+            <div id="errorMessage" class="error-message">
+                <i class="fas fa-exclamation-circle"></i>
+                <span id="errorText">Falscher Benutzername oder Passwort</span>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username"><i class="fas fa-user"></i> Benutzername</label>
+                    <div class="input-with-icon">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="username" placeholder="Benutzername eingeben" required autocomplete="username">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password"><i class="fas fa-lock"></i> Passwort</label>
+                    <div class="input-with-icon">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+                    </div>
+                </div>
+
+                <div class="remember-forgot">
+                    <label class="remember">
+                        <input type="checkbox" id="remember">
+                        Eingeloggt bleiben
+                    </label>
+                    <a href="#" class="forgot">Passwort vergessen?</a>
+                </div>
+
+                <button type="submit" class="login-btn" id="loginBtn">
+                    <i class="fas fa-sign-in-alt"></i> Anmelden
+                </button>
+
+                <div id="loading" class="loading">
+                    <i class="fas fa-spinner"></i> Anmeldung laeuft...
+                </div>
+            </form>
+
+            <!-- Demo Credentials -->
+            <div class="demo-credentials">
+                <h4><i class="fas fa-info-circle"></i> Demo Zugaenge</h4>
+                <p><strong>Admin:</strong> admin / admin123</p>
+                <p><strong>Techniker:</strong> tech / tech123</p>
+                <p><strong>Viewer:</strong> viewer / viewer123</p>
+            </div>
+
+            <!-- Footer -->
+            <div class="footer">
+                <p>&copy; 2025 Connection Manager | <a href="#">Datenschutz</a> | <a href="#">Impressum</a></p>
+                <p>Version 2.0.0 | Nur fuer internen Gebrauch</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        // Apply saved theme
+        (function() {
+            var t = localStorage.getItem('theme');
+            if (t === 'light') document.body.classList.add('light-mode');
+        })();
+    </script>
+    <script>
+        /* ── Particle system ── */
+        (function initParticles() {
+            const container = document.getElementById("particles");
+            if (!container) return;
+            const count = 25;
+            for (let i = 0; i < count; i++) {
+                const p = document.createElement("div");
+                p.className = "particle";
+                const size = Math.random() * 4 + 2;
+                const left = Math.random() * 100;
+                const dur  = Math.random() * 12 + 8;
+                const delay = Math.random() * 10;
+                const hue = Math.random() > 0.5 ? "rgba(59,130,246,.2)" : "rgba(139,92,246,.15)";
+                p.style.cssText = `width:${size}px;height:${size}px;left:${left}%;background:${hue};animation-duration:${dur}s;animation-delay:${delay}s;`;
+                container.appendChild(p);
+            }
+        })();
+
+        /* ── Logo Auto-Finder ── */
+        async function setLogoAuto() {
+            const candidates = [
+                "logo.png", "./logo.png", "assets/logo.png", "./assets/logo.png",
+                "img/logo.png", "./img/logo.png", "images/logo.png", "./images/logo.png"
+            ];
+            const logoEl = document.getElementById("appLogo");
+            const fallback = document.getElementById("logoFallback");
+
+            function tryLoad(src) {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => resolve({ ok: true, src });
+                    img.onerror = () => resolve({ ok: false, src });
+                    img.src = src + "?v=" + Date.now();
+                });
+            }
+
+            let found = null;
+            for (const c of candidates) {
+                const r = await tryLoad(c);
+                if (r.ok) { found = r.src; break; }
+            }
+
+            if (found) {
+                logoEl.src = found;
+                logoEl.style.display = "block";
+                fallback.style.display = "none";
+            } else {
+                logoEl.style.display = "none";
+                fallback.style.display = "block";
+            }
+        }
+
+        const API_ORIGIN = (window.API_ORIGIN || "http://127.0.0.1:8000").replace(/\/$/, "");
+
+        /* ── Login Logic ── */
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const remember = document.getElementById('remember').checked;
+            const errorMessage = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+            const loading = document.getElementById('loading');
+            const loginBtn = document.getElementById('loginBtn');
+
+            loading.style.display = 'block';
+            loginBtn.disabled = true;
+            loginBtn.style.opacity = '.6';
+            errorMessage.style.display = 'none';
+
+            try {
+                const res = await fetch(`${API_ORIGIN}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!res.ok) {
+                    const msg = await res.text();
+                    throw new Error(msg || 'Login fehlgeschlagen');
+                }
+
+                const data = await res.json();
+                const token = data?.access_token;
+                if (!token) throw new Error('Kein Token erhalten');
+
+                if (remember) {
+                    localStorage.setItem('rememberLogin', 'true');
+                    localStorage.setItem('username', username);
+                    localStorage.setItem('authToken', token);
+                } else {
+                    sessionStorage.setItem('username', username);
+                    sessionStorage.setItem('authToken', token);
+                    localStorage.removeItem('rememberLogin');
+                }
+
+                const role = data?.role || 'viewer';
+                const permissions = Array.isArray(data?.permissions) ? data.permissions : [];
+                const forcePasswordChange = !!data?.force_password_change;
+                if (remember) {
+                    localStorage.setItem('userRole', role);
+                    localStorage.setItem('userPermissions', JSON.stringify(permissions));
+                } else {
+                    sessionStorage.setItem('userRole', role);
+                    sessionStorage.setItem('userPermissions', JSON.stringify(permissions));
+                    localStorage.removeItem('userRole');
+                }
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('loginAt', new Date().toISOString());
+
+                // Check if password change is required
+                if (forcePasswordChange) {
+                    // Store token temporarily for the password change request
+                    sessionStorage.setItem('authToken', token);
+                    sessionStorage.setItem('username', username);
+                    if (remember) {
+                        localStorage.setItem('authToken', token);
+                        localStorage.setItem('username', username);
+                    }
+
+                    loading.innerHTML = '<i class="fas fa-key" style="color:#f59e0b;"></i> Passwortaenderung erforderlich...';
+                    setTimeout(function () { showPasswordChangeDialog(token); }, 600);
+                    return;
+                }
+
+                if (remember) {
+                    localStorage.setItem('username', username);
+                    localStorage.setItem('authToken', token);
+                } else {
+                    sessionStorage.setItem('username', username);
+                    sessionStorage.setItem('authToken', token);
+                }
+
+                // Success animation
+                const card = document.getElementById('loginCard');
+                card.style.animation = 'successFlash .6s ease';
+                card.style.borderColor = 'rgba(74,222,128,.5)';
+                loading.innerHTML = '<i class="fas fa-check-circle" style="color:#4ade80;"></i> Erfolgreich!';
+
+                setTimeout(() => { window.location.href = 'cross-connects.html'; }, 600);
+
+            } catch (err) {
+                errorText.textContent = 'Falscher Benutzername oder Passwort';
+                errorMessage.style.display = 'block';
+                loading.style.display = 'none';
+                loginBtn.disabled = false;
+                loginBtn.style.opacity = '1';
+
+                const card = document.getElementById('loginCard');
+                card.style.animation = 'shake 0.5s';
+                setTimeout(() => { card.style.animation = ''; }, 500);
+            }
+        });
+
+        window.addEventListener('DOMContentLoaded', async function() {
+            await setLogoAuto();
+
+            const hasToken = !!(localStorage.getItem('authToken') || sessionStorage.getItem('authToken'));
+            if (hasToken) {
+                window.location.href = 'cross-connects.html';
+            }
+
+            if (localStorage.getItem('rememberLogin') === 'true') {
+                const savedUser = localStorage.getItem('username');
+                if (savedUser) {
+                    document.getElementById('username').value = savedUser;
+                    document.getElementById('remember').checked = true;
+                }
+            }
+        });
+
+        /* ── Password Change Dialog (force on first login) ── */
+        function showPasswordChangeDialog(token) {
+            const loginCard = document.getElementById('loginCard');
+            loginCard.innerHTML = `
+                <div class="logo">
+                    <div class="logo-fallback" style="display:block;">
+                        <i class="fas fa-key" style="color:#f59e0b;"></i>
+                    </div>
+                    <h1>Passwort aendern</h1>
+                    <p>Ihr temporaeres Passwort muss geaendert werden.</p>
+                </div>
+
+                <div id="pwChangeError" class="error-message">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span id="pwChangeErrorText"></span>
+                </div>
+
+                <form id="pwChangeForm">
+                    <div class="form-group">
+                        <label><i class="fas fa-lock"></i> Aktuelles Passwort</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="currentPw" placeholder="Temporaeres Passwort" required autocomplete="current-password">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-key"></i> Neues Passwort</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-key"></i>
+                            <input type="password" id="newPw" placeholder="Neues Passwort (min. 6 Zeichen)" required minlength="6" autocomplete="new-password">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-check-double"></i> Neues Passwort bestaetigen</label>
+                        <div class="input-with-icon">
+                            <i class="fas fa-check-double"></i>
+                            <input type="password" id="confirmPw" placeholder="Passwort wiederholen" required minlength="6" autocomplete="new-password">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="login-btn" id="pwChangeBtn">
+                        <i class="fas fa-save"></i> Passwort aendern
+                    </button>
+                    <div id="pwChangeLoading" class="loading">
+                        <i class="fas fa-spinner"></i> Wird gespeichert...
+                    </div>
+                </form>
+
+                <div class="footer">
+                    <p>&copy; 2025 Connection Manager</p>
+                </div>
+            `;
+
+            document.getElementById('pwChangeForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const currentPw = document.getElementById('currentPw').value;
+                const newPw = document.getElementById('newPw').value;
+                const confirmPw = document.getElementById('confirmPw').value;
+                const errEl = document.getElementById('pwChangeError');
+                const errText = document.getElementById('pwChangeErrorText');
+                const loading = document.getElementById('pwChangeLoading');
+                const btn = document.getElementById('pwChangeBtn');
+
+                errEl.style.display = 'none';
+
+                if (newPw !== confirmPw) {
+                    errText.textContent = 'Die Passwoerter stimmen nicht ueberein.';
+                    errEl.style.display = 'block';
+                    return;
+                }
+                if (newPw.length < 6) {
+                    errText.textContent = 'Das Passwort muss mindestens 6 Zeichen lang sein.';
+                    errEl.style.display = 'block';
+                    return;
+                }
+                if (currentPw === newPw) {
+                    errText.textContent = 'Das neue Passwort muss sich vom aktuellen unterscheiden.';
+                    errEl.style.display = 'block';
+                    return;
+                }
+
+                loading.style.display = 'block';
+                btn.disabled = true;
+
+                try {
+                    const authToken = token || localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+                    const res = await fetch(API_ORIGIN + '/auth/change-password', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + authToken,
+                        },
+                        body: JSON.stringify({ current_password: currentPw, new_password: newPw }),
+                    });
+
+                    if (!res.ok) {
+                        const data = await res.json().catch(() => ({}));
+                        throw new Error(data.detail || 'Fehler beim Aendern');
+                    }
+
+                    const result = await res.json();
+
+                    // Update token if a new one was issued
+                    if (result.access_token) {
+                        const remember = localStorage.getItem('rememberLogin') === 'true';
+                        if (remember) {
+                            localStorage.setItem('authToken', result.access_token);
+                        } else {
+                            sessionStorage.setItem('authToken', result.access_token);
+                        }
+                        if (result.role) {
+                            if (remember) localStorage.setItem('userRole', result.role);
+                            else sessionStorage.setItem('userRole', result.role);
+                        }
+                        if (result.permissions) {
+                            if (remember) localStorage.setItem('userPermissions', JSON.stringify(result.permissions));
+                            else sessionStorage.setItem('userPermissions', JSON.stringify(result.permissions));
+                        }
+                    }
+
+                    loading.innerHTML = '<i class="fas fa-check-circle" style="color:#4ade80;"></i> Passwort geaendert!';
+                    loginCard.style.animation = 'successFlash .6s ease';
+                    loginCard.style.borderColor = 'rgba(74,222,128,.5)';
+
+                    setTimeout(function () { window.location.href = 'cross-connects.html'; }, 800);
+                } catch (err) {
+                    errText.textContent = err.message;
+                    errEl.style.display = 'block';
+                    loading.style.display = 'none';
+                    btn.disabled = false;
+                }
+            });
+        }
+    </script>
+</body>
+</html>

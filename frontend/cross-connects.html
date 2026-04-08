@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cross Connects</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .search-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .search-bar .input{flex:1 1 260px;min-width:200px;}
+    .search-bar .select{width:170px;flex-shrink:0;}
+    .stat-strip{display:flex;gap:18px;align-items:center;padding:6px 0;}
+    .stat-strip .stat-pill{background:var(--card-bg,#1e1e2e);border:1px solid var(--border,#333);border-radius:8px;padding:4px 14px;font-size:.85rem;display:flex;align-items:center;gap:6px;}
+    .stat-strip .stat-pill .val{font-weight:700;font-size:1rem;}
+
+    /* table tweaks */
+    .cc-table th,.cc-table td{padding:8px 10px;white-space:nowrap;}
+    .cc-table .col-serial{min-width:90px;}
+    .cc-table .col-kunde{min-width:110px;max-width:280px;white-space:normal;word-break:break-word;}
+    .cc-table .col-rfra{min-width:100px;}
+    .cc-table .col-aside,.cc-table .col-zside{min-width:130px;}
+    .cc-table .col-bb{min-width:100px;}
+    .cell-sub{font-size:.78rem;color:var(--muted,#999);margin-top:2px;}
+
+    /* expand detail */
+    .detail-row td{padding:12px 14px !important;background:var(--card-bg,#1a1a2e);border-top:none;}
+    .detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px 24px;}
+    .detail-item{display:flex;flex-direction:column;gap:2px;}
+    .detail-label{font-size:.75rem;color:var(--muted,#999);text-transform:uppercase;letter-spacing:.04em;}
+    .detail-value{font-size:.9rem;font-weight:500;}
+    .expand-btn{cursor:pointer;user-select:none;font-size:.8rem;width:22px;text-align:center;display:inline-block;transition:transform .15s;}
+    .expand-btn.open{transform:rotate(90deg);}
+
+    /* ── Pinned row styling ── */
+    .pinned-row { position: relative; }
+    .pinned-row td {
+      background: rgba(59,130,246,.06) !important;
+      border-bottom-color: rgba(59,130,246,.12) !important;
+    }
+    .pinned-row td:first-child {
+      border-left: 3px solid #3b82f6;
+    }
+    .pin-icon { font-size: .7rem; vertical-align: middle; }
+
+    /* Pinned counter badge */
+    .pinned-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 12px; border-radius: 8px;
+      font-size: .82rem; font-weight: 600;
+      background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.2);
+      color: #60a5fa;
+    }
+    .btn-clear-pins {
+      padding: 4px 12px; border-radius: 8px; font-size: .78rem;
+      background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2);
+      color: #f87171; cursor: pointer; transition: .15s;
+    }
+    .btn-clear-pins:hover {
+      background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.35);
+    }
+
+    /* ── Light Mode Overrides ── */
+    body.light-mode .stat-strip .stat-pill { background: #ffffff; border-color: rgba(148,163,184,.2); }
+    body.light-mode .detail-row td { background: #f8fafc; }
+    body.light-mode .cell-sub { color: #64748b; }
+    body.light-mode .detail-label { color: #64748b; }
+    body.light-mode .pinned-row td { background: rgba(59,130,246,.04) !important; }
+    body.light-mode .pinned-badge { background: rgba(59,130,246,.06); color: #2563eb; border-color: rgba(59,130,246,.15); }
+    body.light-mode .btn-clear-pins { background: rgba(239,68,68,.05); color: #dc2626; border-color: rgba(239,68,68,.15); }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-title">Cross Connects</div>
+    </div>
+  </header>
+
+  <main class="page-wrap">
+    <div class="app-shell">
+      <section class="main-content">
+
+        <!-- Toolbar -->
+        <div class="card">
+          <h1 class="card-title" style="margin-bottom:2px;">Cross Connects</h1>
+          <div class="card-subtitle" style="margin-bottom:10px;">Bestandsuebersicht aktiver Leitungen. Suche nach Serial, Kunde, RFRA Switch, Rack, PP&hellip;</div>
+
+          <div class="search-bar">
+            <input id="searchInput" class="input" placeholder="Suche eingeben + Enter → Leitung wird oben angepinnt" autofocus />
+            <select id="statusFilter" class="select">
+              <option value="active" selected>Active</option>
+              <option value="deinstalled">Deinstalled</option>
+              <option value="all">Alle</option>
+            </select>
+            <button id="btnKwPlanning" class="btn btn-primary" onclick="location.href='kw-planning.html'">KW Planung</button>
+            <button id="btnRefresh" class="btn">Aktualisieren</button>
+          </div>
+        </div>
+
+        <!-- Stat strip -->
+        <div class="stat-strip" id="statStrip">
+          <div class="stat-pill">Angezeigt <span class="val" id="statShown">0</span></div>
+          <div class="stat-pill">Gesamt <span class="val" id="statTotal">0</span></div>
+          <div class="stat-pill" id="statFilterPill">Filter <span class="val" id="statFilter">active</span></div>
+          <span id="pinnedInfo" style="display:none;">
+            <span class="pinned-badge">&#128204; Angepinnt: <span id="pinnedCount">0</span></span>
+            <button class="btn-clear-pins" id="btnClearPins" title="Alle Pins entfernen">Pins loeschen</button>
+          </span>
+        </div>
+
+        <!-- Table -->
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div id="listStatus" class="small muted" style="display:flex;align-items:center;gap:8px;padding:10px 14px;"></div>
+          <div class="table-scroll">
+            <table class="table-list-table table-list cc-table" id="ccTable">
+              <thead>
+                <tr>
+                  <th style="width:28px;"></th>
+                  <th class="col-serial">Serial</th>
+                  <th class="col-kunde">Kunde</th>
+                  <th class="col-rfra">RFRA Switch</th>
+                  <th class="col-aside">A-Seite</th>
+                  <th class="col-zside">Z-Seite</th>
+                  <th class="col-bb">BB IN</th>
+                  <th class="col-bb">BB OUT</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="ccTableBody"></tbody>
+            </table>
+          </div>
+          <div class="empty-state" id="emptyState" hidden>Keine Daten geladen.</div>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <div class="dock-zone" aria-hidden="true"></div>
+
+  <nav class="bottom-dock" aria-label="Hauptnavigation">
+    <div class="dock-meta">
+      <div class="dock-brand">Connection Manager</div>
+      <div class="userbox dock-userbox" id="userBox"></div>
+    </div>
+    <a class="dock-item" href="dashboard.html" data-nav>Dashboard</a>
+    <a class="dock-item" href="kw-planning.html" data-nav>KW Planung</a>
+    <a class="dock-item" href="cross-connects.html" data-nav>Cross Connects</a>
+    <a class="dock-item" href="patchpanels.html" data-nav>Patchpanels</a>
+    <a class="dock-item" href="historical-archive.html" data-nav>Leitungsarchiv</a>
+    <a class="dock-item" href="migration-audit.html" data-nav>Migration Audit</a>
+    <a class="dock-item" href="admin.html" data-nav data-admin-nav style="display:none;">Admin</a>
+  </nav>
+
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <script src="config.js"></script>
+  <script src="nav-auth.js"></script>
+  <script src="cross-connects.js"></script>
+</body>
+</html>

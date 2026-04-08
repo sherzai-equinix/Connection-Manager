@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* ═══════════════════════════════════════════
+       ANIMATIONS
+       ═══════════════════════════════════════════ */
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes shimmerLine {
+      0%   { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 4px rgba(102,187,106,.25); }
+      50%      { box-shadow: 0 0 12px rgba(102,187,106,.55); }
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(.92); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    @keyframes countPop {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+
+    /* ═══════════════════════════════════════════
+       VIEWPORT LOCK — no page scroll
+       ═══════════════════════════════════════════ */
+    body.dashboard-page .page-wrap {
+      overflow: hidden !important;
+      height: calc(100vh - var(--topbar-height, 48px)) !important;
+    }
+    body.dashboard-page .app-shell {
+      height: 100% !important; overflow: hidden !important;
+    }
+    body.dashboard-page .main-content {
+      height: 100% !important; overflow: hidden !important;
+      padding: 16px 20px 8px 20px !important;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+
+    /* ═══════════════════════════════════════════
+       HERO TOP BAR
+       ═══════════════════════════════════════════ */
+    .dash-hero {
+      display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+      padding: 14px 22px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(15,23,42,.65) 0%, rgba(30,41,59,.45) 100%);
+      border: 1px solid rgba(255,255,255,.07);
+      backdrop-filter: blur(16px);
+      flex-shrink: 0;
+      position: relative; overflow: hidden;
+      animation: fadeSlideUp .5s cubic-bezier(.22,1,.36,1) both;
+    }
+    .dash-hero::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899, #3b82f6);
+      background-size: 200% 100%; animation: shimmerLine 4s linear infinite;
+    }
+    .dash-hero-title {
+      font-size: 1.3rem; font-weight: 800; letter-spacing: -.02em;
+      background: linear-gradient(135deg, #f1f5f9, #94a3b8);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .dash-hero-kw { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 220px; }
+    .kw-badge {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 5px 14px; border-radius: 20px;
+      background: rgba(102,187,106,.1); border: 1px solid rgba(102,187,106,.22);
+      font-size: .82rem; font-weight: 700; color: #66bb6a; white-space: nowrap;
+    }
+    .kw-badge .kw-dot { width: 7px; height: 7px; border-radius: 50%; background: #66bb6a; animation: pulseGlow 2s ease infinite; }
+    .kw-progress { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+    .kw-bar-outer { height: 8px; border-radius: 6px; background: rgba(255,255,255,.06); overflow: hidden; }
+    .kw-bar-fill {
+      height: 100%; border-radius: 6px; width: 0%;
+      background: linear-gradient(90deg, #66bb6a, #43a047);
+      transition: width 1s cubic-bezier(.22,1,.36,1);
+      position: relative;
+    }
+    .kw-bar-fill::after {
+      content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 24px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.35));
+      border-radius: 0 6px 6px 0;
+    }
+    .kw-text { font-size: .73rem; color: var(--muted,#999); }
+    .dash-hero .btn { backdrop-filter: blur(6px); font-size: .82rem; padding: 6px 16px; }
+
+    /* ═══════════════════════════════════════════
+       STAT CARDS — horizontal row
+       ═══════════════════════════════════════════ */
+    .dash-stats {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px; flex-shrink: 0;
+    }
+    .dash-card {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      padding: 16px 8px 14px;
+      border-radius: 16px;
+      background: rgba(15,23,42,.5);
+      border: 1px solid rgba(255,255,255,.06);
+      backdrop-filter: blur(12px);
+      text-decoration: none; color: inherit;
+      position: relative; overflow: hidden;
+      transition: transform .25s cubic-bezier(.22,1,.36,1),
+                  box-shadow .35s ease, border-color .3s ease;
+      animation: fadeSlideUp .45s cubic-bezier(.22,1,.36,1) both;
+    }
+    .dash-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      border-radius: 16px 16px 0 0; opacity: 0;
+      transition: opacity .3s ease;
+    }
+    .dash-card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(59,130,246,.3);
+      box-shadow: 0 12px 36px rgba(0,0,0,.35), 0 0 24px rgba(59,130,246,.08);
+    }
+    .dash-card:hover::before { opacity: 1; }
+    .dash-card:nth-child(1) { animation-delay: .06s; }
+    .dash-card:nth-child(2) { animation-delay: .12s; }
+    .dash-card:nth-child(3) { animation-delay: .18s; }
+    .dash-card:nth-child(4) { animation-delay: .24s; }
+    .dash-card:nth-child(5) { animation-delay: .30s; }
+    .dash-card:nth-child(6) { animation-delay: .36s; }
+    .dash-card:nth-child(1)::before { background: linear-gradient(90deg,#66bb6a,#43a047); }
+    .dash-card:nth-child(2)::before { background: linear-gradient(90deg,#4fc3f7,#0288d1); }
+    .dash-card:nth-child(3)::before { background: linear-gradient(90deg,#ef5350,#c62828); }
+    .dash-card:nth-child(4)::before { background: linear-gradient(90deg,#ffb74d,#ef6c00); }
+    .dash-card:nth-child(5)::before { background: linear-gradient(90deg,#ab47bc,#7b1fa2); }
+    .dash-card:nth-child(6)::before { background: linear-gradient(90deg,#ffd54f,#f9a825); }
+
+    .dash-card-icon {
+      width: 44px; height: 44px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.4rem; transition: transform .3s ease;
+    }
+    .dash-card:hover .dash-card-icon { transform: scale(1.1); }
+    .dash-card-val {
+      font-size: 1.7rem; font-weight: 800; line-height: 1;
+      font-variant-numeric: tabular-nums;
+      transition: transform .2s ease;
+    }
+    .dash-card-val.pop { animation: countPop .35s ease; }
+    .dash-card-label {
+      font-size: .7rem; color: var(--muted,#999);
+      text-transform: uppercase; letter-spacing: .05em; text-align: center;
+    }
+    .dash-card-hint {
+      font-size: .62rem; color: rgba(148,163,184,.5); text-align: center;
+    }
+    #dashboardStatus { font-size: .72rem; color: var(--muted,#999); padding: 0 4px; flex-shrink: 0; }
+
+    /* ═══════════════════════════════════════════
+       MAIN AREA: quarterly + future sidebar
+       ═══════════════════════════════════════════ */
+    .dash-main {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 14px; flex: 1; min-height: 0;
+      animation: fadeSlideUp .5s cubic-bezier(.22,1,.36,1) .38s both;
+    }
+
+    /* ── Quarterly panel ── */
+    .dash-quarterly {
+      display: flex; flex-direction: column;
+      border-radius: 16px;
+      background: rgba(15,23,42,.5);
+      border: 1px solid rgba(255,255,255,.06);
+      backdrop-filter: blur(12px);
+      overflow: hidden; min-height: 0;
+    }
+    .q-header {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 12px 18px; border-bottom: 1px solid rgba(255,255,255,.06); flex-shrink: 0;
+    }
+    .q-header-title {
+      font-size: 1rem; font-weight: 700; white-space: nowrap;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .q-select {
+      background: rgba(15,23,42,.6); border: 1px solid rgba(255,255,255,.08);
+      color: #e2e8f0; border-radius: 8px; padding: 5px 10px; font-size: .82rem;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .q-select:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.15); }
+    .q-header .btn { padding: 5px 16px; font-size: .82rem; }
+
+    /* Tabs */
+    .q-tabs {
+      display: flex; gap: 0; border-bottom: 1px solid rgba(255,255,255,.06);
+      flex-shrink: 0; padding: 0 10px;
+    }
+    .q-tab {
+      padding: 10px 20px; font-size: .82rem; font-weight: 600;
+      color: var(--muted,#666); cursor: pointer;
+      border: none; background: none;
+      border-bottom: 2px solid transparent;
+      transition: all .2s ease; position: relative;
+    }
+    .q-tab:hover { color: #cbd5e1; }
+    .q-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; }
+    .q-tab.active::after {
+      content: ''; position: absolute;
+      bottom: -1px; left: 30%; right: 30%; height: 2px;
+      background: #3b82f6; border-radius: 2px;
+      box-shadow: 0 0 10px rgba(59,130,246,.5);
+    }
+
+    /* Scrollable q-body */
+    .q-body {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
+      padding: 16px 20px 20px; min-height: 0;
+    }
+    .q-body::-webkit-scrollbar { width: 5px; }
+    .q-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.07); border-radius: 3px; }
+    .q-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.14); }
+
+    /* ── Future sidebar ── */
+    .dash-future {
+      display: flex; flex-direction: column; gap: 12px;
+      border-radius: 16px;
+      border: 1px dashed rgba(255,255,255,.08);
+      background: rgba(15,23,42,.25);
+      backdrop-filter: blur(8px);
+      padding: 16px; min-height: 0; overflow-y: auto;
+    }
+    .dash-future::-webkit-scrollbar { width: 4px; }
+    .dash-future::-webkit-scrollbar-thumb { background: rgba(255,255,255,.05); border-radius: 2px; }
+    .future-header {
+      font-size: .82rem; font-weight: 700; color: rgba(148,163,184,.7);
+      display: flex; align-items: center; gap: 7px;
+      padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,.04);
+    }
+    .future-widget {
+      border: 1px solid rgba(255,255,255,.05); border-radius: 12px;
+      padding: 14px; background: rgba(15,23,42,.3);
+      transition: border-color .2s, background .2s;
+    }
+    .future-widget:hover { border-color: rgba(255,255,255,.1); background: rgba(15,23,42,.45); }
+    .future-widget-title { font-size: .75rem; font-weight: 700; color: var(--muted,#999); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .future-widget-body { font-size: .78rem; color: rgba(148,163,184,.5); }
+    .future-placeholder {
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+      opacity: .25; padding: 20px 0;
+    }
+    .future-placeholder svg { width: 36px; height: 36px; stroke: currentColor; }
+    .future-placeholder span { font-size: .72rem; color: var(--muted,#666); }
+
+    /* ═══════════════════════════════════════════
+       QUARTERLY TAB CONTENT STYLES
+       ═══════════════════════════════════════════ */
+
+    /* Donut chart + legend */
+    .q-chart-row {
+      display: flex; gap: 24px; align-items: center;
+      margin-bottom: 18px; padding: 14px 18px;
+      background: rgba(15,23,42,.4); border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.04);
+      animation: scaleIn .35s ease both;
+    }
+    .q-donut-wrap { position: relative; width: 120px; height: 120px; flex-shrink: 0; }
+    .q-donut-wrap svg { animation: fadeIn .6s ease .1s both; }
+    .q-donut-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; }
+    .q-donut-center .big { font-size: 1.5rem; font-weight: 800; }
+    .q-donut-center .sub { font-size: .65rem; color: var(--muted,#999); }
+    .q-legend { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+    .q-legend-item {
+      display: flex; align-items: center; gap: 10px; font-size: .84rem;
+      padding: 5px 10px; border-radius: 8px; transition: background .15s;
+    }
+    .q-legend-item:hover { background: rgba(255,255,255,.04); }
+    .q-legend-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+    .q-legend-val { font-weight: 700; margin-left: auto; min-width: 26px; text-align: right; font-variant-numeric: tabular-nums; }
+
+    /* Totals pill grid */
+    .q-totals-compact { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+    .q-tp {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(15,23,42,.4); border: 1px solid rgba(255,255,255,.05);
+      border-radius: 12px; padding: 12px 14px;
+      transition: border-color .2s, transform .2s, background .2s;
+      animation: fadeSlideUp .35s ease both;
+    }
+    .q-tp:hover { border-color: rgba(255,255,255,.12); transform: translateY(-2px); background: rgba(15,23,42,.6); }
+    .q-tp:nth-child(1) { animation-delay: .05s; }
+    .q-tp:nth-child(2) { animation-delay: .1s; }
+    .q-tp:nth-child(3) { animation-delay: .15s; }
+    .q-tp:nth-child(4) { animation-delay: .2s; }
+    .q-tp:nth-child(5) { animation-delay: .25s; }
+    .q-tp:nth-child(6) { animation-delay: .3s; }
+    .q-tp-icon { font-size: 1.15rem; }
+    .q-tp-num { font-size: 1.15rem; font-weight: 800; }
+    .q-tp-label { font-size: .65rem; color: var(--muted,#999); text-transform: uppercase; letter-spacing: .03em; }
+    .q-trend { display: inline-flex; align-items: center; gap: 2px; font-size: .65rem; font-weight: 700; margin-left: 4px; }
+    .q-trend.up { color: #4ade80; } .q-trend.down { color: #f87171; } .q-trend.flat { color: #94a3b8; }
+
+    /* KW Table */
+    .q-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    .q-table th {
+      text-align: left; padding: 8px 8px; font-weight: 600;
+      color: var(--muted,#999); font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+      border-bottom: 2px solid rgba(255,255,255,.08);
+    }
+    .q-table td { padding: 7px 8px; border-bottom: 1px solid rgba(255,255,255,.04); }
+    .q-table tr { transition: background .15s; }
+    .q-table tr:hover td { background: rgba(59,130,246,.06); }
+    .q-table .num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+    .q-table .kw-label { font-weight: 700; }
+    .kw-cell-bar { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+    .kw-cell-track { width: 50px; height: 6px; border-radius: 4px; background: rgba(255,255,255,.06); overflow: hidden; }
+    .kw-cell-fill { height: 100%; border-radius: 4px; transition: width .6s cubic-bezier(.22,1,.36,1); }
+
+    /* Tech leaderboard */
+    .q-section-title { font-size: .95rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .tech-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+    .tech-card {
+      border: 1px solid rgba(255,255,255,.06); border-radius: 14px;
+      padding: 14px 16px; background: rgba(15,23,42,.4);
+      position: relative; overflow: hidden;
+      transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .35s, border-color .3s;
+      animation: fadeSlideUp .4s ease both;
+    }
+    .tech-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+    .tech-card.gold   { border-color: rgba(251,191,36,.35); }
+    .tech-card.gold::before   { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: linear-gradient(90deg,#fbbf24,#f59e0b); }
+    .tech-card.silver { border-color: rgba(148,163,184,.35); }
+    .tech-card.silver::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: linear-gradient(90deg,#94a3b8,#cbd5e1); }
+    .tech-card.bronze { border-color: rgba(217,119,6,.35); }
+    .tech-card.bronze::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: linear-gradient(90deg,#d97706,#f59e0b); }
+    .tech-rank { position: absolute; top: 10px; right: 14px; font-size: 1.5rem; opacity: .35; }
+    .tech-name { font-size: .95rem; font-weight: 700; text-transform: capitalize; }
+    .tech-total { font-size: .72rem; color: var(--muted,#999); margin: 3px 0 8px; }
+    .tech-total strong { font-size: 1.1rem; color: #e2e8f0; }
+    .tech-bars { display: flex; flex-direction: column; gap: 4px; }
+    .tech-bar-row { display: flex; align-items: center; gap: 6px; font-size: .72rem; }
+    .tech-bar-label { width: 54px; text-align: right; color: var(--muted,#999); flex-shrink: 0; }
+    .tech-bar-track { flex: 1; height: 7px; background: rgba(255,255,255,.06); border-radius: 4px; overflow: hidden; }
+    .tech-bar-fill { height: 100%; border-radius: 4px; transition: width .7s cubic-bezier(.22,1,.36,1); }
+    .tech-bar-num { width: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+    .bar-install   { background: linear-gradient(90deg,#4fc3f7,#0288d1); }
+    .bar-deinstall { background: linear-gradient(90deg,#ef5350,#c62828); }
+    .bar-linemove  { background: linear-gradient(90deg,#ffb74d,#ef6c00); }
+    .bar-pathmove  { background: linear-gradient(90deg,#ab47bc,#7b1fa2); }
+
+    /* ═══════════════════════════════════════════
+       RESPONSIVE
+       ═══════════════════════════════════════════ */
+    @media (max-width: 1200px) {
+      .dash-main { grid-template-columns: 1fr; }
+      .dash-future { display: none; }
+    }
+    @media (max-width: 900px) {
+      .dash-stats { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .dash-stats { grid-template-columns: repeat(2, 1fr); }
+      .q-totals-compact { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* ═══════════════════════════════════════════
+       LIGHT MODE OVERRIDES
+       ═══════════════════════════════════════════ */
+    body.light-mode .dash-hero {
+      background: linear-gradient(135deg, rgba(255,255,255,.85) 0%, rgba(241,245,249,.75) 100%);
+      border-color: rgba(148,163,184,.22);
+      backdrop-filter: none;
+      box-shadow: 0 2px 12px rgba(0,0,0,.04);
+    }
+    body.light-mode .dash-hero-title {
+      background: linear-gradient(135deg, #0f172a, #334155);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    body.light-mode .dash-card {
+      background: rgba(255,255,255,.9);
+      border-color: rgba(148,163,184,.2);
+      backdrop-filter: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,.04);
+    }
+    body.light-mode .dash-card:hover {
+      border-color: rgba(59,130,246,.3);
+      box-shadow: 0 8px 24px rgba(0,0,0,.08), 0 0 16px rgba(59,130,246,.06);
+    }
+    body.light-mode .dash-card-label { color: #64748b; }
+    body.light-mode .dash-card-hint { color: #94a3b8; }
+    body.light-mode .dash-quarterly {
+      background: rgba(255,255,255,.9);
+      border-color: rgba(148,163,184,.2);
+      backdrop-filter: none;
+      box-shadow: 0 2px 12px rgba(0,0,0,.04);
+    }
+    body.light-mode .q-header { border-bottom-color: rgba(148,163,184,.15); }
+    body.light-mode .q-select {
+      background: #ffffff; border-color: rgba(148,163,184,.3);
+      color: #1e293b;
+    }
+    body.light-mode .q-tabs { border-bottom-color: rgba(148,163,184,.15); }
+    body.light-mode .q-tab { color: #64748b; }
+    body.light-mode .q-tab:hover { color: #334155; }
+    body.light-mode .q-tab.active { color: #2563eb; border-bottom-color: #2563eb; }
+    body.light-mode .q-body::-webkit-scrollbar-thumb { background: rgba(148,163,184,.25); }
+    body.light-mode .q-body::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,.4); }
+    body.light-mode .q-chart-row {
+      background: rgba(241,245,249,.7);
+      border-color: rgba(148,163,184,.15);
+    }
+    body.light-mode .q-donut-center .sub { color: #64748b; }
+    body.light-mode .q-legend-item:hover { background: rgba(59,130,246,.04); }
+    body.light-mode .q-tp {
+      background: rgba(255,255,255,.85);
+      border-color: rgba(148,163,184,.18);
+    }
+    body.light-mode .q-tp:hover {
+      border-color: rgba(59,130,246,.25);
+      background: rgba(255,255,255,.95);
+    }
+    body.light-mode .q-tp-label { color: #64748b; }
+    body.light-mode .q-table th {
+      color: #475569;
+      border-bottom-color: rgba(148,163,184,.2);
+    }
+    body.light-mode .q-table td { border-bottom-color: rgba(148,163,184,.1); }
+    body.light-mode .q-table tr:hover td { background: rgba(59,130,246,.04); }
+    body.light-mode .kw-cell-track { background: rgba(148,163,184,.12); }
+    body.light-mode .tech-card {
+      border-color: rgba(148,163,184,.2);
+      background: rgba(255,255,255,.85);
+    }
+    body.light-mode .tech-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.06); }
+    body.light-mode .tech-total { color: #64748b; }
+    body.light-mode .tech-total strong { color: #0f172a; }
+    body.light-mode .tech-bar-label { color: #64748b; }
+    body.light-mode .tech-bar-track { background: rgba(148,163,184,.12); }
+    body.light-mode .dash-future {
+      background: rgba(255,255,255,.5);
+      border-color: rgba(148,163,184,.2);
+      backdrop-filter: none;
+    }
+    body.light-mode .future-header { color: #475569; border-bottom-color: rgba(148,163,184,.12); }
+    body.light-mode .future-widget {
+      background: rgba(255,255,255,.7);
+      border-color: rgba(148,163,184,.18);
+    }
+    body.light-mode .future-widget:hover {
+      border-color: rgba(148,163,184,.3);
+      background: rgba(255,255,255,.9);
+    }
+    body.light-mode .future-widget-title { color: #475569; }
+    body.light-mode .future-widget-body { color: #64748b; }
+    body.light-mode .kw-bar-outer { background: rgba(148,163,184,.12); }
+    body.light-mode .kw-text { color: #64748b; }
+    body.light-mode #dashboardStatus { color: #64748b; }
+    body.light-mode .skeleton-line { background: rgba(148,163,184,.15); }
+  </style>
+</head>
+<body class="dashboard-page">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-title">Dashboard</div>
+    </div>
+  </header>
+
+  <main class="page-wrap">
+    <div class="app-shell">
+      <section class="main-content">
+
+        <!-- ── Hero strip ── -->
+        <div class="dash-hero">
+          <span class="dash-hero-title">Dashboard</span>
+          <div class="dash-hero-kw" id="kwStrip" style="display:none;">
+            <div class="kw-badge"><span class="kw-dot"></span> <span id="kwStripLabel">-</span></div>
+            <div class="kw-progress">
+              <div class="kw-bar-outer"><div class="kw-bar-fill" id="kwStripBar"></div></div>
+              <div class="kw-text" id="kwStripPct">-</div>
+            </div>
+          </div>
+          <a href="kw-planning.html" class="btn btn-primary">KW Planung</a>
+          <button id="btnRefreshDashboard" class="btn">&#x21bb; Aktualisieren</button>
+        </div>
+
+        <!-- ── Stat cards row ── -->
+        <div class="dash-stats" id="dashboardGrid"></div>
+        <div id="dashboardStatus"></div>
+
+        <!-- ── Main: Quarterly + Future sidebar ── -->
+        <div class="dash-main">
+          <div class="dash-quarterly">
+            <div class="q-header">
+              <span class="q-header-title">&#128202; Quartalsbericht</span>
+              <select id="qYearSelect" class="q-select"></select>
+              <select id="qQuarterSelect" class="q-select">
+                <option value="1">Q1</option><option value="2">Q2</option>
+                <option value="3">Q3</option><option value="4">Q4</option>
+              </select>
+              <button id="btnLoadQ" class="btn btn-primary">Laden</button>
+            </div>
+            <div class="q-tabs" id="qTabs">
+              <button class="q-tab active" data-tab="overview">Uebersicht</button>
+              <button class="q-tab" data-tab="kwtable">KW Tabelle</button>
+              <button class="q-tab" data-tab="leaderboard">Leaderboard</button>
+            </div>
+            <div class="q-body" id="qBody">
+              <div style="padding:28px 0;text-align:center;opacity:.4;font-size:.85rem;">Quartal waehlen und laden.</div>
+            </div>
+          </div>
+
+          <!-- Future zone -->
+          <div class="dash-future">
+            <div class="future-header">&#128204; Widgets</div>
+            <div class="future-widget" id="futureQuickStats">
+              <div class="future-widget-title">&#128200; Schnellzahlen</div>
+              <div class="future-widget-body" id="futureQuickBody">Wird nach Laden angezeigt...</div>
+            </div>
+            <div class="future-placeholder">
+              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+              </svg>
+              <span>Weitere Widgets bald verfuegbar</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <div class="dock-zone" aria-hidden="true"></div>
+  <nav class="bottom-dock" aria-label="Hauptnavigation">
+    <div class="dock-meta">
+      <div class="dock-brand">Connection Manager</div>
+      <div class="userbox dock-userbox" id="userBox"></div>
+    </div>
+    <a class="dock-item" href="dashboard.html" data-nav>Dashboard</a>
+    <a class="dock-item" href="kw-planning.html" data-nav>KW Planung</a>
+    <a class="dock-item" href="cross-connects.html" data-nav>Cross Connects</a>
+    <a class="dock-item" href="patchpanels.html" data-nav>Patchpanels</a>
+    <a class="dock-item" href="historical-archive.html" data-nav>Leitungsarchiv</a>
+    <a class="dock-item" href="migration-audit.html" data-nav>Migration Audit</a>
+    <a class="dock-item" href="admin.html" data-nav data-admin-nav style="display:none;">Admin</a>
+  </nav>
+
+  <div class="toast-wrap" id="toastWrap"></div>
+  <script src="config.js"></script>
+  <script src="nav-auth.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

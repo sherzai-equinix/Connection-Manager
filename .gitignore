@@ -1,0 +1,34 @@
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+dist/
+build/
+*.sqlite
+*.db
+*.dump
+*.backup
+*.bak
+*.zip
+zside_import_log_*.json
+DB backup *.sql
+devicedb*.sql
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Local coverage / test artifacts
+.coverage
+htmlcov/
+
+# Frontend / tooling caches
+node_modules/
+
+# Local runtime files
+*.log
