@@ -1,5 +1,41 @@
 ﻿# Connection Manager (FastAPI + Vanilla Frontend)
 
+## GitHub Update + Backup
+
+Das Projekt hat jetzt einen eingebauten GitHub-Workflow fuer schnelle Updates mit Backup.
+
+### Ein-Klick Update nach GitHub
+
+In VS Code kannst du ueber `Terminal -> Run Task` den Task `GitHub: Backup and Publish` starten.
+
+Der Task macht automatisch:
+
+1. lokales Backup von `.env` und `connection_manager.db` nach `backups/local/<timestamp>/`
+2. Git-Backup-Tag vom letzten Stand vor dem neuen Commit
+3. Commit aller aktuellen Aenderungen
+4. Push nach GitHub auf `main`
+5. Push des Backup-Tags nach GitHub
+
+Wenn keine Commit-Message angegeben wird, erzeugt das Script automatisch eine mit Zeitstempel.
+
+### Letzte Code-Version wiederherstellen
+
+Task: `GitHub: Restore Latest Code Backup`
+
+Dieser Task holt das letzte Backup-Tag und erstellt daraus einen neuen Branch wie `restore/20260408-...`.
+So kannst du die alte Version sicher pruefen oder wieder uebernehmen, ohne sofort `main` zu zerstoeren.
+
+### Letzte lokale Dateien wiederherstellen
+
+Task: `GitHub: Restore Latest Local Backup`
+
+Dieser Task stellt `.env` und `connection_manager.db` aus dem neuesten lokalen Backup wieder her.
+
+### Wichtig
+
+GitHub sichert hier deinen Code und die versionierten Projektdateien.
+Lokale sensible Dateien und DB-Dateien bleiben absichtlich ausserhalb von Git und werden nur unter `backups/` lokal gesichert.
+
 ## Start (Backend)
 
 ```bash
