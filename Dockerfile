@@ -1,20 +1,22 @@
-FROM python:3.11-slim
+FROM python:3.11-slim AS backend
 
 WORKDIR /app
 
-# System deps (oft nötig für psycopg2 / builds)
+# System deps for psycopg2-binary
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    curl \
+    gcc curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY app.py config.py database.py models.py security.py audit.py crud.py \
+     migration.py complete_migration.py check_patchpanels.py ./
+COPY routers/ routers/
+COPY scripts/ scripts/
+COPY migrations/ migrations/
+COPY frontend/ frontend/
 
-# Wenn du uvicorn/fastapi nutzt -> 8000. Wenn flask -> oft 5000.
 EXPOSE 8000
 
-# Default: versuche uvicorn (passt bei vielen setups)
-CMD ["python", "app.py"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--proxy-headers"]
