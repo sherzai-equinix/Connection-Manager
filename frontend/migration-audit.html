@@ -1,0 +1,535 @@
+﻿<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Migration Audit</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .audit-filter-btn { border: 0; background: transparent; padding: 0 2px; margin-left: 6px; color: #94a3b8; }
+    .audit-filter-badge { font-size: 11px; vertical-align: middle; }
+
+    /* ── Unified modal (same as KW Planning) ── */
+    .modal-bg {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.62); z-index: 1050;
+      overflow-y: auto;
+    }
+    .modal-bg.show { display: block; }
+    .modal-panel {
+      max-width: 1400px; margin: 24px auto;
+      border-radius: 14px;
+      background: var(--card-bg, #181a1e); padding: 20px 24px 24px;
+      border: 1px solid var(--border, #333);
+      margin-bottom: 40px;
+    }
+    .modal-panel .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; margin-bottom: 16px;
+    }
+    .modal-panel .modal-header h3 { margin: 0; font-size: 1.1rem; }
+
+    /* ── Form Section (same as install form) ── */
+    .form-section {
+      margin-bottom: 16px; padding: 14px 16px; border-radius: 10px;
+      background: var(--surface-2, #23262b); border: 1px solid var(--border, #333);
+    }
+    .form-section-title {
+      font-size: .85rem; font-weight: 700; margin-bottom: 10px;
+      color: var(--text-muted, #999); text-transform: uppercase; letter-spacing: .04em;
+    }
+    .form-row {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px; margin-bottom: 8px;
+    }
+    .form-row label {
+      display: block; font-size: .78rem; font-weight: 600;
+      color: var(--text-muted, #999); margin-bottom: 3px;
+    }
+    .form-row .span-2 { grid-column: span 2; }
+
+    /* ── Info Note ── */
+    .info-note {
+      padding: 8px 14px; border-radius: 8px; font-size: .82rem;
+      background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.25);
+      color: #93c5fd; margin-bottom: 12px;
+    }
+
+    /* ── Port Grid (cassette style – same as KW Planning) ── */
+    .cassette-row {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px; align-items: start;
+    }
+    .cassette {
+      border: 1px solid var(--border, #333); border-radius: 10px;
+      padding: 10px; background: var(--surface-3, #31343a);
+    }
+    .cassette h4 {
+      font-size: .78rem; font-weight: 700; margin: 0 0 6px;
+      color: var(--text-muted, #999);
+    }
+    .cassette-empty {
+      opacity: .35; min-height: 40px;
+      background: repeating-linear-gradient(
+        135deg, transparent, transparent 6px,
+        rgba(148,163,184,.06) 6px, rgba(148,163,184,.06) 12px
+      );
+    }
+    .cassette-empty h4 { font-style: italic; }
+    .ports-grid {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px;
+    }
+    .pbtn {
+      border: 1px solid rgba(148,163,184,.3); border-radius: 8px;
+      padding: 6px 0; font-weight: 700; cursor: pointer;
+      font-size: 11px; color: #e2e8f0; text-align: center;
+      background: transparent; transition: .12s;
+    }
+    .pbtn.free {
+      background: rgba(16,185,129,.18); border-color: rgba(16,185,129,.45);
+    }
+    .pbtn.free:hover {
+      background: rgba(16,185,129,.35); transform: translateY(-1px);
+    }
+    .pbtn.occ {
+      background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.4);
+      cursor: not-allowed; opacity: .85;
+    }
+    .pbtn.na {
+      background: rgba(148,163,184,.08); border-color: rgba(148,163,184,.2);
+      cursor: not-allowed; opacity: .7;
+    }
+    .pbtn.sel {
+      outline: 3px solid rgba(59,130,246,.45);
+      box-shadow: 0 0 0 1px rgba(59,130,246,.25);
+    }
+    .port-grid-wrap {
+      margin-top: 8px; max-height: 480px; overflow-y: auto;
+      padding-right: 4px;
+    }
+    .port-grid-wrap::-webkit-scrollbar { width: 5px; }
+    .port-grid-wrap::-webkit-scrollbar-thumb { background: var(--border, #444); border-radius: 4px; }
+
+    /* ── Autocomplete ── */
+    .autocomplete-list {
+      display: none; position: absolute; left: 0; right: 0; top: 100%;
+      z-index: 300; max-height: 200px; overflow-y: auto;
+      background: var(--surface-3, #31343a); border: 1px solid var(--border, #444);
+      border-radius: 0 0 8px 8px; box-shadow: 0 6px 18px rgba(0,0,0,.4);
+    }
+    .autocomplete-list.show { display: block; }
+    .autocomplete-item {
+      padding: 7px 12px; cursor: pointer; font-size: .84rem;
+      color: var(--text, #e0e0e0); transition: background .1s;
+    }
+    .autocomplete-item:hover, .autocomplete-item.active {
+      background: var(--primary, #3b82f6); color: #fff;
+    }
+    .autocomplete-item .ac-sub {
+      font-size: .72rem; color: var(--text-muted, #999); margin-left: 6px;
+    }
+    .autocomplete-item:hover .ac-sub { color: rgba(255,255,255,.7); }
+
+    /* ── Auto-fill result ── */
+    .auto-fill-result {
+      padding: 10px 14px; border-radius: 8px; margin-top: 8px;
+      background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.25);
+      font-size: .84rem;
+    }
+    .auto-fill-result .af-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px;
+    }
+    .auto-fill-result .af-label { font-size: .72rem; color: var(--text-muted, #999); }
+    .auto-fill-result .af-val   { font-weight: 700; }
+
+    /* ── BB Card Row ── */
+    .bb-card-row {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;
+    }
+    .bb-card {
+      padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border, #333);
+      background: var(--surface-3, #31343a); cursor: pointer;
+      font-size: .84rem; font-weight: 600; transition: .12s;
+    }
+    .bb-card:hover {
+      border-color: var(--primary, #3b82f6); background: rgba(59,130,246,.1);
+    }
+    .bb-card.selected {
+      border-color: #10b981; background: rgba(16,185,129,.12);
+      box-shadow: 0 0 0 2px rgba(16,185,129,.3);
+    }
+    .bb-card .bb-label { font-size: .72rem; color: var(--text-muted, #999); }
+
+    /* ── PP Selector ── */
+    .pp-selected-label {
+      font-size: .82rem; font-weight: 700; margin-top: 4px; color: #66bb6a;
+    }
+
+    /* ── Audit Category Sections ── */
+    .audit-categories-wrap {
+      display: flex; flex-direction: column; gap: 8px;
+      padding-right: 4px;
+    }
+
+    .audit-cat-section {
+      border: 1px solid var(--border, #333);
+      border-radius: 10px; overflow: hidden;
+      background: var(--card-bg, #181a1e);
+    }
+    .audit-cat-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px; cursor: pointer;
+      font-weight: 600; font-size: .88rem;
+      user-select: none; transition: background .15s;
+    }
+    .audit-cat-header:hover { filter: brightness(1.1); }
+    .audit-cat-error { background: rgba(239,68,68,.12); border-bottom: 1px solid rgba(239,68,68,.25); color: #fca5a5; }
+    .audit-cat-warning { background: rgba(245,158,11,.10); border-bottom: 1px solid rgba(245,158,11,.25); color: #fcd34d; }
+    .audit-cat-ok { background: rgba(16,185,129,.08); border-bottom: 1px solid rgba(16,185,129,.2); color: #6ee7b7; }
+    .audit-cat-icon { font-size: 1rem; }
+    .audit-cat-toggle { font-size: .75rem; transition: transform .2s; }
+    .audit-cat-body { transition: max-height .3s ease; overflow: hidden; }
+    .audit-cat-body.collapsed { max-height: 0 !important; padding: 0; }
+
+    .audit-table-scroll {
+      overflow: auto; max-height: 540px; max-width: 100%;
+      overflow-x: scroll;
+    }
+    .audit-table-scroll::-webkit-scrollbar { width: 6px; height: 10px; }
+    .audit-table-scroll::-webkit-scrollbar-thumb { background: #555; border-radius: 5px; }
+    .audit-table-scroll::-webkit-scrollbar-thumb:hover { background: #777; }
+    .audit-table-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,.05); border-radius: 5px; }
+
+    .audit-tbl { font-size: .82rem; margin-bottom: 0; min-width: 1600px; }
+    .audit-tbl thead th {
+      position: sticky; top: 0; z-index: 5;
+      background: var(--surface-2, #23262b);
+      white-space: nowrap; font-size: .75rem;
+      padding: 6px 8px;
+    }
+    .audit-tbl td { padding: 5px 8px; vertical-align: middle; white-space: nowrap; }
+
+    /* ── Conflict detail chips ── */
+    .conflict-chip {
+      display: inline-block; padding: 2px 8px; border-radius: 6px;
+      font-size: .73rem; margin: 1px 2px; line-height: 1.4;
+    }
+    .conflict-chip.a-side { background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.3); color: #fca5a5; }
+    .conflict-chip.z-side { background: rgba(245,158,11,.12); border: 1px solid rgba(245,158,11,.3); color: #fcd34d; }
+    .conflict-detail { font-size: .7rem; color: var(--text-muted, #999); display: block; margin-top: 1px; }
+
+    /* ── Pager ── */
+    .audit-pager {
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px; padding: 8px 12px; font-size: .82rem;
+    }
+    .audit-pager button {
+      border: 1px solid var(--border, #444); background: transparent;
+      color: var(--text, #e0e0e0); border-radius: 6px;
+      padding: 3px 10px; cursor: pointer; font-size: .78rem;
+      transition: .12s;
+    }
+    .audit-pager button:hover { background: rgba(59,130,246,.15); border-color: rgba(59,130,246,.4); }
+    .audit-pager button:disabled { opacity: .4; cursor: not-allowed; }
+    .audit-pager button.active { background: rgba(59,130,246,.2); border-color: #3b82f6; font-weight: 700; }
+    .audit-pager .pager-info { color: var(--text-muted, #999); }
+
+    /* ── Summary bar ── */
+    #auditSummary {
+      padding: 8px 14px; border-radius: 8px;
+      background: var(--surface-2, #23262b); border: 1px solid var(--border, #333);
+    }
+    .summary-item { display: flex; align-items: center; gap: 4px; }
+    .summary-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .summary-dot.err { background: #ef4444; }
+    .summary-dot.warn { background: #f59e0b; }
+    .summary-dot.ok { background: #10b981; }
+
+    /* ── View Toggle ── */
+    #viewToggle .btn { font-size: .82rem; padding: 4px 14px; }
+    #dedupInfo { font-size: .78rem; }
+
+    /* ── Light Mode Overrides ── */
+    body.light-mode .modal-panel { background: #ffffff; border-color: rgba(148,163,184,.22); }
+    body.light-mode .form-section { background: #f8fafc; border-color: rgba(148,163,184,.2); }
+    body.light-mode .audit-cat-section { background: #ffffff; border-color: rgba(148,163,184,.2); }
+    body.light-mode .audit-cat-error { background: #fef2f2; border-bottom-color: rgba(239,68,68,.2); color: #b91c1c; }
+    body.light-mode .audit-cat-warning { background: #fffbeb; border-bottom-color: rgba(245,158,11,.2); color: #92400e; }
+    body.light-mode .audit-cat-ok { background: #ecfdf5; border-bottom-color: rgba(16,185,129,.18); color: #065f46; }
+    body.light-mode .audit-tbl thead th { background: #f1f5f9; color: #475569; }
+    body.light-mode .audit-tbl td { color: #334155; }
+    body.light-mode .audit-table-scroll { background: #ffffff; }
+    body.light-mode .audit-table-scroll::-webkit-scrollbar-thumb { background: rgba(148,163,184,.3); }
+    body.light-mode .audit-table-scroll::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,.5); }
+    body.light-mode .audit-table-scroll::-webkit-scrollbar-track { background: rgba(148,163,184,.06); }
+    body.light-mode .audit-pager button { background: #ffffff; border-color: rgba(148,163,184,.25); color: #334155; }
+    body.light-mode .audit-pager button:hover { background: rgba(59,130,246,.06); border-color: rgba(59,130,246,.3); }
+    body.light-mode .audit-pager button.active { background: rgba(59,130,246,.1); border-color: #3b82f6; color: #1e40af; }
+    body.light-mode .audit-pager .pager-info { color: #64748b; }
+    body.light-mode .info-note { background: #eff6ff; border-color: rgba(59,130,246,.2); color: #1e40af; }
+    body.light-mode .cassette { background: #f8fafc; border-color: rgba(148,163,184,.2); }
+    body.light-mode .auto-fill-result { background: #ecfdf5; border-color: rgba(16,185,129,.2); }
+    body.light-mode .bb-card { background: #f8fafc; border-color: rgba(148,163,184,.2); }
+    body.light-mode .bb-card:hover { background: rgba(59,130,246,.05); border-color: rgba(59,130,246,.3); }
+    body.light-mode .conflict-chip.a-side { background: #fef2f2; border-color: rgba(239,68,68,.2); color: #b91c1c; }
+    body.light-mode .conflict-chip.z-side { background: #fffbeb; border-color: rgba(245,158,11,.2); color: #92400e; }
+    body.light-mode #auditSummary { background: #f8fafc; border-color: rgba(148,163,184,.2); }
+    body.light-mode .autocomplete-list { background: #ffffff; border-color: rgba(148,163,184,.22); box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+    body.light-mode .autocomplete-item { color: #334155; }
+    body.light-mode .autocomplete-item .ac-sub { color: #64748b; }
+    body.light-mode .autocomplete-item:hover, body.light-mode .autocomplete-item.active { background: #3b82f6; color: #fff; }
+    body.light-mode .pbtn { color: #334155; border-color: rgba(148,163,184,.3); }
+    body.light-mode .audit-filter-btn { color: #64748b; }
+  </style>
+</head>
+<body class="migration-audit-page">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-title">Migration Audit</div>
+    </div>
+  </header>
+
+  <main class="page-wrap">
+    <div class="app-shell">
+      <section class="main-content">
+        <div class="card">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+              <h1 class="card-title" style="margin-bottom:4px;">Migration Audit</h1>
+              <div class="card-subtitle">Audit-Workflow: Leitungen pruefen, Konflikte loesen, BB setzen.</div>
+            </div>
+            <div class="small muted">Login: <span id="sidebarLoginAt">-</span></div>
+          </div>
+
+          <div class="row g-2 align-items-end mb-3">
+            <div class="col-md-5">
+              <label class="form-label small muted">XLSB hochladen (Sheet: <code>Dateie</code>)</label>
+              <input class="form-control" type="file" id="auditFile" accept=".xlsb" data-admin-only />
+            </div>
+            <div class="col-md-7 d-flex gap-2 flex-wrap">
+              <button class="btn btn-primary" id="btnImport" data-admin-only>Import in Audit</button>
+              <button class="btn btn-outline-success" id="btnImportZside" data-admin-only title="Z-Seite Kundenstruktur aus Audit-Daten importieren">Z-Side Import</button>
+              <button class="btn" id="btnReload">Reload</button>
+              <a href="cross-connects.html" class="btn">Zurueck</a>
+              <a href="#" data-action="logout" class="btn">Logout</a>
+            </div>
+          </div>
+
+          <div class="small muted mb-2" id="importMsg"></div>
+          <div id="zsideStatus" class="small mb-2" style="display:none;"></div>
+
+          <ul class="nav nav-tabs mb-3" id="tabs">
+            <li class="nav-item"><button class="nav-link active" data-status="imported" type="button">To Audit</button></li>
+            <li class="nav-item"><button class="nav-link" data-status="audited" type="button">Audited</button></li>
+          </ul>
+
+          <!-- View toggle: current state vs. all history -->
+          <div class="d-flex align-items-center gap-3 mb-3">
+            <div class="btn-group btn-group-sm" id="viewToggle">
+              <button class="btn btn-outline-primary active" data-view="current" type="button" title="Nur aktueller Stand pro Leitung">Aktueller Stand</button>
+              <button class="btn btn-outline-primary" data-view="all" type="button" title="Alle importierten Zeilen (inkl. Historie)">Alle Eintraege</button>
+            </div>
+            <div id="dedupInfo" class="small text-muted" style="display:none;"></div>
+          </div>
+
+          <!-- Summary bar -->
+          <div id="auditSummary" class="d-flex gap-3 mb-3 small flex-wrap" style="display:none!important;"></div>
+
+          <!-- Category sections -->
+          <div id="auditCategories" class="audit-categories-wrap">
+            <!-- Cat 2: both-side errors (top) -->
+            <div class="audit-cat-section" id="catSection2">
+              <div class="audit-cat-header audit-cat-error" data-cat="2">
+                <span class="audit-cat-icon">&#9888;</span>
+                <span class="audit-cat-title">Fehler auf beiden Seiten</span>
+                <span class="badge bg-danger ms-2" id="catCount2">0</span>
+                <span class="audit-cat-toggle ms-auto">&#9660;</span>
+              </div>
+              <div class="audit-cat-body" id="catBody2">
+                <div class="audit-table-scroll">
+                  <table class="table table-sm table-striped align-middle audit-tbl">
+                    <thead id="catHead2"></thead>
+                    <tbody id="catTbody2"></tbody>
+                  </table>
+                </div>
+                <div class="audit-pager" id="catPager2"></div>
+              </div>
+            </div>
+
+            <!-- Cat 1: single-side conflicts -->
+            <div class="audit-cat-section" id="catSection1">
+              <div class="audit-cat-header audit-cat-warning" data-cat="1">
+                <span class="audit-cat-icon">&#9888;</span>
+                <span class="audit-cat-title">Einzelne Konflikte</span>
+                <span class="badge bg-warning text-dark ms-2" id="catCount1">0</span>
+                <span class="audit-cat-toggle ms-auto">&#9660;</span>
+              </div>
+              <div class="audit-cat-body" id="catBody1">
+                <div class="audit-table-scroll">
+                  <table class="table table-sm table-striped align-middle audit-tbl">
+                    <thead id="catHead1"></thead>
+                    <tbody id="catTbody1"></tbody>
+                  </table>
+                </div>
+                <div class="audit-pager" id="catPager1"></div>
+              </div>
+            </div>
+
+            <!-- Cat 0: clean (collapsed by default) -->
+            <div class="audit-cat-section" id="catSection0">
+              <div class="audit-cat-header audit-cat-ok" data-cat="0">
+                <span class="audit-cat-icon">&#10003;</span>
+                <span class="audit-cat-title">Ohne Fehler</span>
+                <span class="badge bg-success ms-2" id="catCount0">0</span>
+                <span class="audit-cat-toggle ms-auto">&#9654;</span>
+              </div>
+              <div class="audit-cat-body collapsed" id="catBody0">
+                <div class="audit-table-scroll">
+                  <table class="table table-sm table-striped align-middle audit-tbl">
+                    <thead id="catHead0"></thead>
+                    <tbody id="catTbody0"></tbody>
+                  </table>
+                </div>
+                <div class="audit-pager" id="catPager0"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Global pagination for flat view -->
+          <div id="globalPager" class="audit-pager mt-2" style="display:none;"></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="dock-zone" aria-hidden="true"></div>
+
+  <nav class="bottom-dock" aria-label="Hauptnavigation">
+    <div class="dock-meta">
+      <div class="dock-brand">Connection Manager</div>
+      <div class="userbox dock-userbox" id="userBox"></div>
+    </div>
+    <a class="dock-item" href="dashboard.html" data-nav>Dashboard</a>
+    <a class="dock-item" href="kw-planning.html" data-nav>KW Planung</a>
+    <a class="dock-item" href="cross-connects.html" data-nav>Cross Connects</a>
+    <a class="dock-item" href="patchpanels.html" data-nav>Patchpanels</a>
+    <a class="dock-item" href="historical-archive.html" data-nav>Leitungsarchiv</a>
+    <a class="dock-item" href="migration-audit.html" data-nav>Migration Audit</a>
+    <a class="dock-item" href="admin.html" data-nav data-admin-nav style="display:none;">Admin</a>
+  </nav>
+
+  <!-- ════════════════════════════════════════════════════════
+       AUDIT EDIT — Unified Cross-Connect Form (same as KW Install)
+       ════════════════════════════════════════════════════════ -->
+  <div id="auditEditBg" class="modal-bg">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h3 id="auditModalTitle">Audit bearbeiten</h3>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" id="btnAuditClose">Schliessen</button>
+          <button class="btn btn-primary" id="btnSaveAudit" data-admin-only>Speichern &amp; Uebernehmen</button>
+        </div>
+      </div>
+
+      <div class="info-note">
+        RFRA Switch + Port eingeben &rarr; A-Seite wird automatisch aufgeloest.
+        Kunden-PP eingeben &rarr; Kunde + Raum werden automatisch erkannt.
+        BB IN wird kontextbezogen nach Kundenraum geladen &mdash; BB OUT folgt automatisch via Peer.
+      </div>
+
+      <!-- ── 1. Grunddaten ── -->
+      <div class="form-section">
+        <div class="form-section-title">Grunddaten</div>
+        <div class="form-row">
+          <div><label>Serial</label><input id="auSerial" class="input" placeholder="Serial" /></div>
+          <div><label>Product ID</label><input id="auProductId" class="input" placeholder="Product ID" /></div>
+          <div><label>Kommentar</label><input id="auComment" class="input" placeholder="Technischer Kommentar" /></div>
+        </div>
+      </div>
+
+      <!-- ── 2. A-Seite (RFRA Switch → auto-fill) ── -->
+      <div class="form-section">
+        <div class="form-section-title">A-Seite (RFRA Switch)</div>
+        <div class="form-row">
+          <div style="position:relative;">
+            <label>Switch Name</label>
+            <input id="auSwitchName" class="input" placeholder="z.B. RFRA3211" autocomplete="off" />
+            <div id="auSwitchNameList" class="autocomplete-list"></div>
+          </div>
+          <div style="position:relative;">
+            <label>Switch Port</label>
+            <input id="auSwitchPort" class="input" placeholder="z.B. ETH1/11" autocomplete="off" />
+            <div id="auSwitchPortList" class="autocomplete-list"></div>
+          </div>
+          <div><label>Raum (auto)</label><input id="auARoom" class="input" readonly tabindex="-1" /></div>
+        </div>
+        <div id="auASideResult" class="auto-fill-result" style="display:none;"></div>
+      </div>
+
+      <!-- ── 3. Z-Seite (Kunde) ── -->
+      <div class="form-section">
+        <div class="form-section-title">Z-Seite (Kunde)</div>
+        <div class="form-row">
+          <div style="position:relative;">
+            <label>Kunden Patchpanel</label>
+            <input id="auZPP" class="input" placeholder="z.B. PP:0607:1370187" autocomplete="off" />
+            <div id="auZPPList" class="autocomplete-list"></div>
+          </div>
+          <div><label>Kunde (auto)</label><input id="auZCustomer" class="input" readonly tabindex="-1" /></div>
+          <div><label>Raum (auto)</label><input id="auZRoom" class="input" readonly tabindex="-1" /></div>
+        </div>
+        <div class="form-row">
+          <div><label>Rack</label><input id="auZRack" class="input" readonly tabindex="-1" /></div>
+        </div>
+        <div id="auZPortLabel" class="pp-selected-label" style="display:none;"></div>
+        <div class="port-grid-wrap" id="auZPortGrid"></div>
+      </div>
+
+      <!-- ── 4. BB IN ── -->
+      <div id="auBbPrefillHint" class="auto-fill-result" style="display:none; background:rgba(245,158,11,.08); border-color:rgba(245,158,11,.25); margin-bottom:8px;"></div>
+      <div class="form-section">
+        <div class="form-section-title">Backbone IN</div>
+        <div class="small muted" id="auBbInHint">Z-Seite eingeben, um passende BB IN PPs zu sehen.</div>
+        <div id="auBbInCards" class="bb-card-row"></div>
+        <div id="auBbInPortLabel" class="pp-selected-label" style="display:none;"></div>
+        <div class="port-grid-wrap" id="auBbInPortGrid"></div>
+      </div>
+
+      <!-- ── 5. BB OUT (auto via peer) ── -->
+      <div class="form-section">
+        <div class="form-section-title">Backbone OUT <span class="small muted">(automatisch via Peer)</span></div>
+        <div id="auBbOutResult" class="auto-fill-result" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="filterModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="filterModalTitle">Filter</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-2">
+            <input id="filterModalSearch" class="form-control form-control-sm" placeholder="Suchen..." />
+          </div>
+          <select id="filterModalSelect" class="form-select form-select-sm" size="12"></select>
+          <div class="form-text mt-1" id="filterModalHint"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-sm" id="filterModalClear">Filter loeschen</button>
+          <button class="btn btn-sm btn-primary" id="filterModalApply">Speichern</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="config.js"></script>
+  <script src="nav-auth.js"></script>
+  <script src="migration-audit.js"></script>
+</body>
+</html>

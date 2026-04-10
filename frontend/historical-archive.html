@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Leitungsarchiv</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* ── Page-specific styles ── */
+    .search-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .search-bar .input{flex:1 1 260px;min-width:200px;}
+    .search-bar .select{width:180px;flex-shrink:0;}
+    .stat-strip{display:flex;gap:14px;align-items:center;padding:6px 0;flex-wrap:wrap;}
+    .stat-strip .stat-pill{background:var(--card-bg,#1e1e2e);border:1px solid var(--border,#333);border-radius:8px;padding:4px 14px;font-size:.85rem;display:flex;align-items:center;gap:6px;}
+    .stat-strip .stat-pill .val{font-weight:700;font-size:1rem;}
+
+    /* table tweaks */
+    .hl-table th,.hl-table td{padding:7px 10px;white-space:nowrap;font-size:.85rem;}
+    .hl-table .col-serial{min-width:80px;}
+    .hl-table .col-kunde{min-width:100px;max-width:240px;white-space:normal;word-break:break-word;}
+    .hl-table .col-pp{min-width:70px;}
+    .cell-sub{font-size:.78rem;color:var(--muted,#999);margin-top:2px;}
+
+    /* expand detail */
+    .detail-row td{padding:12px 14px !important;background:var(--card-bg,#1a1a2e);border-top:none;}
+    .detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 24px;}
+    .detail-item{display:flex;flex-direction:column;gap:2px;}
+    .detail-item.full-width{grid-column:1 / -1;}
+    .detail-label{font-size:.75rem;color:var(--muted,#999);text-transform:uppercase;letter-spacing:.04em;}
+    .detail-value{font-size:.9rem;font-weight:500;word-break:break-word;white-space:pre-wrap;}
+    .expand-btn{cursor:pointer;user-select:none;font-size:.8rem;width:22px;text-align:center;display:inline-block;transition:transform .15s;}
+    .expand-btn.open{transform:rotate(90deg);}
+
+    /* pagination */
+    .pager{display:flex;align-items:center;gap:8px;padding:10px 0;justify-content:center;flex-wrap:wrap;}
+    .pager button{padding:6px 14px;border-radius:8px;border:1px solid var(--border,#333);background:var(--card,#1e1e2e);color:var(--text,#e2e8f0);cursor:pointer;font-size:.85rem;transition:.15s;}
+    .pager button:hover:not(:disabled){background:var(--primary,#3b82f6);color:#fff;border-color:var(--primary,#3b82f6);}
+    .pager button:disabled{opacity:.4;cursor:default;}
+    .pager .page-info{font-size:.85rem;color:var(--muted,#999);}
+
+    /* import area */
+    .import-area{margin-top:12px;padding:16px;border:2px dashed var(--border,#333);border-radius:12px;text-align:center;transition:.15s;}
+    .import-area.drag-over{border-color:var(--primary,#3b82f6);background:rgba(59,130,246,.06);}
+    .import-area input[type="file"]{display:none;}
+    .import-area label{cursor:pointer;color:var(--primary,#3b82f6);font-weight:600;}
+    .import-area label:hover{text-decoration:underline;}
+    .import-result{margin-top:12px;padding:12px;border-radius:8px;font-size:.88rem;line-height:1.5;}
+    .import-result.success{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);color:#34d399;}
+    .import-result.error{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#f87171;}
+
+    /* batch list */
+    .batch-list{margin-top:10px;}
+    .batch-item{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border,#333);font-size:.85rem;}
+    .batch-item:last-child{border-bottom:none;}
+    .batch-meta{display:flex;gap:16px;align-items:center;flex-wrap:wrap;}
+    .batch-meta .val{font-weight:600;}
+    .btn-del-batch{padding:3px 10px;border-radius:6px;font-size:.78rem;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#f87171;cursor:pointer;transition:.15s;}
+    .btn-del-batch:hover{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.35);}
+
+    /* filter panel */
+    .filter-panel{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;}
+    .filter-panel .input{flex:1 1 160px;min-width:120px;font-size:.85rem;padding:6px 10px;}
+    .filter-panel .select{font-size:.85rem;padding:6px 10px;min-width:140px;}
+
+    /* tabs */
+    .tab-bar{display:flex;gap:0;margin-bottom:0;border-bottom:2px solid var(--border,#333);}
+    .tab-btn{padding:10px 22px;font-size:.9rem;font-weight:600;border:none;background:none;color:var(--muted,#999);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:.15s;}
+    .tab-btn.active{color:var(--primary,#3b82f6);border-bottom-color:var(--primary,#3b82f6);}
+    .tab-btn:hover:not(.active){color:var(--text,#e2e8f0);}
+    .tab-content{display:none;}
+    .tab-content.active{display:block;}
+
+    /* ── Light Mode Overrides ── */
+    body.light-mode .stat-strip .stat-pill{background:#fff;border-color:rgba(148,163,184,.22);color:#334155;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+    body.light-mode .stat-strip .stat-pill .val{color:#1e293b;}
+    body.light-mode .detail-row td{background:#f1f5f9 !important;border-top:1px solid rgba(148,163,184,.12);}
+    body.light-mode .detail-grid{color:#1e293b;}
+    body.light-mode .cell-sub{color:#64748b;}
+    body.light-mode .detail-label{color:#64748b;}
+    body.light-mode .detail-value{color:#1e293b;}
+    body.light-mode .pager button{background:#fff;border-color:rgba(148,163,184,.25);color:#334155;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+    body.light-mode .pager button:hover:not(:disabled){background:var(--primary);color:#fff;border-color:var(--primary);}
+    body.light-mode .pager .page-info{color:#64748b;}
+    body.light-mode .import-area{border-color:rgba(148,163,184,.35);background:#fff;}
+    body.light-mode .import-area.drag-over{background:rgba(59,130,246,.04);border-color:rgba(59,130,246,.5);}
+    body.light-mode .import-result.success{background:rgba(16,185,129,.06);border-color:rgba(16,185,129,.25);color:#059669;}
+    body.light-mode .import-result.error{background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.25);color:#dc2626;}
+    body.light-mode .batch-item{border-bottom-color:rgba(148,163,184,.15);color:#334155;}
+    body.light-mode .batch-meta .val{color:#1e293b;}
+    body.light-mode .btn-del-batch{background:rgba(239,68,68,.05);border-color:rgba(239,68,68,.2);color:#dc2626;}
+    body.light-mode .btn-del-batch:hover{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);}
+    body.light-mode .tab-bar{border-bottom-color:rgba(148,163,184,.25);}
+    body.light-mode .tab-btn{color:#94a3b8;}
+    body.light-mode .tab-btn.active{color:#2563eb;border-bottom-color:#2563eb;}
+    body.light-mode .tab-btn:hover:not(.active){color:#334155;}
+    body.light-mode .hl-table thead th{background:#f1f5f9 !important;color:#475569 !important;border-bottom-color:rgba(148,163,184,.22);}
+    body.light-mode .hl-table tbody td{background:rgba(255,255,255,.65) !important;color:#1e293b;border-bottom-color:rgba(148,163,184,.12);}
+    body.light-mode .hl-table tbody tr:hover td{background:rgba(59,130,246,.04) !important;}
+    body.light-mode .expand-btn{color:#64748b;}
+    body.light-mode .search-bar .input,body.light-mode .filter-panel .input,body.light-mode .filter-panel .select{background:#fff;border-color:rgba(148,163,184,.3);color:#1e293b;}
+    body.light-mode #emptyState{color:#94a3b8;}
+    body.light-mode #listStatus{color:#64748b;}
+    body.light-mode .card-title{color:#0f172a;}
+    body.light-mode .card-subtitle{color:#64748b;}
+  </style>
+</head>
+<body class="historical-archive-page">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-title">Leitungsarchiv</div>
+    </div>
+  </header>
+
+  <main class="page-wrap">
+    <div class="app-shell">
+      <section class="main-content">
+
+        <!-- Tabs -->
+        <div class="card" style="padding-bottom:0;">
+          <h1 class="card-title" style="margin-bottom:2px;">Leitungsarchiv</h1>
+          <div class="card-subtitle" style="margin-bottom:10px;">Historische Leitungen aus CSV-Importen. Read-only Archiv &ndash; keine Auswirkung auf aktive Daten.</div>
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="search">Suche &amp; Anzeige</button>
+            <button class="tab-btn" data-tab="import">CSV Import</button>
+            <button class="tab-btn" data-tab="batches">Import-Historie</button>
+          </div>
+        </div>
+
+        <!-- ═══ TAB: Search & Display ═══ -->
+        <div class="tab-content active" id="tabSearch">
+          <div class="card">
+            <div class="search-bar">
+              <input id="searchInput" class="input" placeholder="Suche: Serial, Product ID, Kunde, PP, RFRA Port, EQX Port..." autofocus />
+              <button id="btnSearch" class="btn btn-primary">Suchen</button>
+              <button id="btnExport" class="btn" title="Suchergebnis als CSV exportieren">&#x2B07; Export</button>
+              <button id="btnRefresh" class="btn">Aktualisieren</button>
+            </div>
+            <div class="filter-panel">
+              <select id="serialFilter" class="select">
+                <option value="">Alle Serials</option>
+                <option value="with_serial">Nur mit Serial</option>
+                <option value="without_serial">Nur ohne Serial</option>
+              </select>
+              <input id="filterCustomer" class="input" placeholder="Kunde..." />
+              <input id="filterPP" class="input" placeholder="Patchpanel (PP A/1/2/Z)..." />
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <div class="stat-strip">
+            <div class="stat-pill">Angezeigt <span class="val" id="statShown">0</span></div>
+            <div class="stat-pill">Gesamt <span class="val" id="statTotal">0</span></div>
+            <div class="stat-pill">Seite <span class="val" id="statPage">1</span> / <span class="val" id="statPages">1</span></div>
+          </div>
+
+          <!-- Status line -->
+          <div id="listStatus" style="font-size:.82rem;color:var(--muted,#999);padding:2px 0;min-height:22px;"></div>
+
+          <!-- Table -->
+          <div class="card" style="padding:0;overflow-x:auto;">
+            <table class="table-list-table hl-table" id="hlTable">
+              <thead>
+                <tr>
+                  <th style="width:28px;"></th>
+                  <th class="col-serial">Serial</th>
+                  <th>Product ID</th>
+                  <th class="col-kunde">Kunde</th>
+                  <th>RFRA Ports</th>
+                  <th class="col-pp">PP A</th>
+                  <th class="col-pp">PP 1</th>
+                  <th class="col-pp">PP 2</th>
+                  <th class="col-pp">PP Z</th>
+                  <th>Logical Name</th>
+                </tr>
+              </thead>
+              <tbody id="hlTableBody"></tbody>
+            </table>
+            <div id="emptyState" hidden style="text-align:center;padding:40px;color:var(--muted,#999);">Keine historischen Leitungen gefunden.</div>
+          </div>
+
+          <!-- Pagination -->
+          <div class="pager" id="pager">
+            <button id="btnFirst" title="Erste Seite">&laquo;</button>
+            <button id="btnPrev">&lsaquo; Zurueck</button>
+            <span class="page-info">Seite <span id="pageNum">1</span> von <span id="pageCount">1</span></span>
+            <button id="btnNext">Weiter &rsaquo;</button>
+            <button id="btnLast" title="Letzte Seite">&raquo;</button>
+          </div>
+        </div>
+
+        <!-- ═══ TAB: CSV Import ═══ -->
+        <div class="tab-content" id="tabImport">
+          <div class="card">
+            <h2 class="card-title" style="font-size:1.1rem;">CSV-Datei importieren</h2>
+            <p style="font-size:.88rem;color:var(--muted,#999);margin-bottom:12px;">
+              Lade eine CSV-Datei mit historischen Leitungsdaten hoch. Die Daten werden in einer separaten Tabelle gespeichert
+              und haben keinen Einfluss auf aktive Cross-Connects.
+            </p>
+            <div class="import-area" id="dropZone">
+              <p>CSV-Datei hierher ziehen oder <label for="csvFile">Datei auswaehlen</label></p>
+              <input type="file" id="csvFile" accept=".csv,.txt" />
+              <div id="fileName" style="margin-top:6px;font-size:.82rem;color:var(--muted,#999);"></div>
+            </div>
+            <div style="margin-top:12px;text-align:center;">
+              <button id="btnImport" class="btn btn-primary" disabled>Importieren</button>
+            </div>
+            <div id="importResult"></div>
+          </div>
+        </div>
+
+        <!-- ═══ TAB: Import History ═══ -->
+        <div class="tab-content" id="tabBatches">
+          <div class="card">
+            <h2 class="card-title" style="font-size:1.1rem;">Import-Historie</h2>
+            <p style="font-size:.88rem;color:var(--muted,#999);margin-bottom:10px;">Alle bisherigen CSV-Importe.</p>
+            <div id="batchList" class="batch-list">
+              <div style="text-align:center;padding:20px;color:var(--muted,#999);">Lade...</div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <!-- Toast wrap -->
+  <div id="toastWrap" style="position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;"></div>
+
+  <!-- Navigation dock -->
+  <div class="dock-zone" aria-hidden="true"></div>
+  <nav class="bottom-dock" aria-label="Hauptnavigation">
+    <div class="dock-meta">
+      <div class="dock-brand">Connection Manager</div>
+      <div class="userbox dock-userbox" id="userBox"></div>
+    </div>
+    <a class="dock-item" href="dashboard.html" data-nav>Dashboard</a>
+    <a class="dock-item" href="kw-planning.html" data-nav>KW Planung</a>
+    <a class="dock-item" href="cross-connects.html" data-nav>Cross Connects</a>
+    <a class="dock-item" href="patchpanels.html" data-nav>Patchpanels</a>
+    <a class="dock-item" href="historical-archive.html" data-nav>Leitungsarchiv</a>
+    <a class="dock-item" href="migration-audit.html" data-nav>Migration Audit</a>
+    <a class="dock-item" href="admin.html" data-nav data-admin-nav style="display:none;">Admin</a>
+  </nav>
+
+  <script src="config.js"></script>
+  <script src="nav-auth.js"></script>
+  <script src="historical-archive.js"></script>
+</body>
+</html>

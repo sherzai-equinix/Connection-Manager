@@ -1,0 +1,29 @@
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.db
+*.sqlite
+*.dump
+*.backup
+*.bak
+*.zip
+*.log
+
+.env
+.git/
+.github/
+.vscode/
+backups/
+node_modules/
+
+# Lokale Hilfsskripte (nicht im Container noetig)
+_*.py
+import bb.py
+debug_ports.py
+direct_debug.py
+DB backup *.sql
+devicedb*.sql
+zside_import_log_*.json
+*.csv

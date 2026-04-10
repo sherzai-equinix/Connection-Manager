@@ -1,0 +1,82 @@
+services:
+
+  db:
+    image: postgres:15
+    container_name: cm_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-devicedb}
+      POSTGRES_USER: ${POSTGRES_USER:-deviceapp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Setze POSTGRES_PASSWORD in Portainer}
+    volumes:
+      - cm_pgdata:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - cm_net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-deviceapp} -d ${POSTGRES_DB:-devicedb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  restoredb:
+    image: postgres:17
+    container_name: cm_postgres_restore
+    environment:
+      POSTGRES_DB: restoredb
+      POSTGRES_USER: deviceapp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5444:5432"
+    networks:
+      - cm_net
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cm_backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-deviceapp}:${POSTGRES_PASSWORD}@restoredb:5432/devicedb_restore17
+      JWT_SECRET: ${JWT_SECRET:?Setze JWT_SECRET in Portainer}
+      JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS:-8}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      API_PREFIX: ${API_PREFIX:-/api/v1}
+    ports:
+      - "${BACKEND_PORT:-8082}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - cm_net
+    restart: unless-stopped
+
+  pgadmin:
+    build:
+      context: .
+      dockerfile: Dockerfile.pgadmin
+    container_name: cm_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@local.dev}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_LISTEN_ADDRESS: 0.0.0.0
+      PGADMIN_LISTEN_PORT: 8080
+    ports:
+      - "${PGADMIN_PORT:-5051}:8080"
+    depends_on:
+      - db
+    networks:
+      - cm_net
+    restart: unless-stopped
+
+volumes:
+  cm_pgdata:
+    name: cm_pgdata
+  cm_pgadmin_data:
+    name: cm_pgadmin_data
+    
+networks:
+  cm_net:
+    name: cm_net

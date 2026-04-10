@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Patchpanel Explorer</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-title">Patchpanel Explorer</div>
+    </div>
+  </header>
+
+  <main class="page-wrap">
+    <div class="app-shell">
+      <section class="main-content">
+
+        <!-- ── Explorer Header ─────────────────────────────────── -->
+        <div class="card pp-explorer-header">
+          <div class="pp-header-row">
+            <div>
+              <h1 class="card-title" style="margin-bottom:2px;">Patchpanel Explorer</h1>
+              <div class="card-subtitle">Alle Patchpanels durchsuchen, filtern und verwalten.</div>
+            </div>
+            <div class="pp-header-actions">
+              <input id="ppSearch" class="input pp-search-input" placeholder="Raum, Rack, Cage oder Patchpanel suchen…" />
+              <button id="btnNewPp" class="btn">+ Neues Patchpanel</button>
+              <button id="btnDeinstallPp" class="btn" style="background:#5c1a1a;color:#ef5350;border-color:#5c1a1a;" disabled>PP Deinstallieren</button>
+            </div>
+          </div>
+          <div id="ppStatus" class="small muted" style="margin-top:6px;"></div>
+        </div>
+
+        <!-- ── 3-Column Explorer ───────────────────────────────── -->
+        <div class="pp-explorer-grid">
+
+          <!-- LEFT: Accordion sidebar -->
+          <aside class="card pp-explorer-sidebar" id="ppSidebar"></aside>
+
+          <!-- MIDDLE: Patchpanel Cards -->
+          <section class="pp-explorer-cards">
+            <div class="pp-cards-header">
+              <span id="ppCardsTitle" class="pp-cards-title">Alle Patchpanels</span>
+              <span id="ppCardsCount" class="small muted"></span>
+            </div>
+            <div id="ppCardsGrid" class="pp-cards-grid"></div>
+          </section>
+
+          <!-- RIGHT: Detail/Compare Panel -->
+          <section class="pp-detail-zone" id="ppDetailZone">
+            <div id="ppDetailA" class="pp-detail-slot">
+              <div class="pp-empty-state">
+                <div class="pp-empty-icon">📋</div>
+                <div class="pp-empty-title">Patchpanel auswählen</div>
+                <div class="pp-empty-sub small muted">Klicke auf ein Patchpanel, um die Port-Belegung anzuzeigen.</div>
+              </div>
+            </div>
+            <div id="ppDetailB" class="pp-detail-slot" style="display:none;"></div>
+          </section>
+
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="dock-zone" aria-hidden="true"></div>
+
+  <nav class="bottom-dock" aria-label="Hauptnavigation">
+    <div class="dock-meta">
+      <div class="dock-brand">Connection Manager</div>
+      <div class="userbox dock-userbox" id="userBox"></div>
+    </div>
+    <a class="dock-item" href="dashboard.html" data-nav>Dashboard</a>
+    <a class="dock-item" href="kw-planning.html" data-nav>KW Planung</a>
+    <a class="dock-item" href="cross-connects.html" data-nav>Cross Connects</a>
+    <a class="dock-item" href="patchpanels.html" data-nav>Patchpanels</a>
+    <a class="dock-item" href="historical-archive.html" data-nav>Leitungsarchiv</a>
+    <a class="dock-item" href="migration-audit.html" data-nav>Migration Audit</a>
+    <a class="dock-item" href="admin.html" data-nav data-admin-nav style="display:none;">Admin</a>
+  </nav>
+
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <!-- ── Port Popup ───────────────────────────────────────────── -->
+  <div id="ppPortPopup" class="pp-port-popup" style="display:none;"></div>
+
+  <!-- ── Create PP Modal ──────────────────────────────────────── -->
+  <div id="ppCreateModal" class="cc-modal-backdrop" style="display:none;">
+    <div class="cc-modal-shell" style="max-width:560px;">
+      <div class="cc-modal-header">
+        <h3 style="margin:0;font-size:1rem;font-weight:700;">Neues Kunden-Patchpanel anlegen</h3>
+        <button class="btn btn-sm" id="ppModalClose">&times;</button>
+      </div>
+      <div class="cc-modal-body" id="ppModalBody">
+        <!-- Steps rendered by JS -->
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="nav-auth.js"></script>
+  <script src="patchpanels.js"></script>
+</body>
+</html>

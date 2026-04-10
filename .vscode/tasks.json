@@ -1,0 +1,41 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "GitHub: Backup and Publish",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\publish_to_github.ps1"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "GitHub: Restore Latest Code Backup",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\restore_latest_backup.ps1"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "GitHub: Restore Latest Local Backup",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}\\scripts\\restore_latest_local_backup.ps1"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

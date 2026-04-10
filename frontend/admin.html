@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin – Benutzerverwaltung</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* ── Admin-specific styles ── */
+    .admin-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+    .admin-header h1 { font-size:1.35rem; margin:0; }
+    .admin-header .subtitle { color:var(--muted,#64748b); font-size:0.85rem; margin-top:2px; }
+
+    .stat-bar { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:6px; }
+    .stat-bar .stat-item { padding:4px 12px; border-radius:8px; background:rgba(59,130,246,.08); font-size:0.82rem; color:var(--text,#e2e8f0); }
+    .stat-bar .stat-item strong { color:#3b82f6; }
+
+    /* User table */
+    .user-row { cursor:pointer; transition:background .15s; }
+    .user-row:hover { background:rgba(59,130,246,.06) !important; }
+    .user-row.selected { background:rgba(59,130,246,.12) !important; border-left:3px solid #3b82f6; }
+    .badge-active { background:#16a34a; color:#fff; font-size:.72rem; padding:2px 8px; border-radius:6px; }
+    .badge-inactive { background:#dc2626; color:#fff; font-size:.72rem; padding:2px 8px; border-radius:6px; }
+    .badge-role { font-size:.72rem; padding:2px 8px; border-radius:6px; }
+    .badge-role.admin { background:rgba(139,92,246,.2); color:#a78bfa; }
+    .badge-role.techniker { background:rgba(59,130,246,.15); color:#60a5fa; }
+    .badge-role.viewer { background:rgba(100,116,139,.15); color:#94a3b8; }
+
+    /* Detail panel */
+    .detail-panel { border:1px solid rgba(59,130,246,.12); border-radius:12px; padding:20px; background:rgba(15,23,42,.3); }
+    .detail-panel .detail-row { display:flex; gap:8px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,.04); align-items:center; }
+    .detail-panel .detail-row:last-child { border-bottom:none; }
+    .detail-panel .detail-label { min-width:160px; color:var(--muted,#64748b); font-size:.83rem; }
+    .detail-panel .detail-value { font-size:.9rem; }
+
+    .action-bar { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+    .action-bar .btn { font-size:.82rem; }
+
+    /* Permissions list */
+    .perm-list { display:flex; flex-wrap:wrap; gap:4px; }
+    .perm-tag { display:inline-block; padding:2px 8px; border-radius:4px; font-size:.72rem; background:rgba(59,130,246,.1); color:#93c5fd; }
+
+    /* Tabs */
+    .admin-tabs { display:flex; gap:0; border-bottom:1px solid rgba(255,255,255,.08); margin-bottom:16px; }
+    .admin-tabs .tab-btn { padding:8px 20px; background:none; border:none; color:var(--muted,#64748b); cursor:pointer; font-size:.88rem; border-bottom:2px solid transparent; transition:all .2s; }
+    .admin-tabs .tab-btn:hover { color:var(--text,#e2e8f0); }
+    .admin-tabs .tab-btn.active { color:#3b82f6; border-bottom-color:#3b82f6; }
+    .tab-content { display:none; }
+    .tab-content.active { display:block; }
+
+    /* Audit log */
+    .audit-details { max-width:350px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; cursor:pointer; }
+    .audit-details:hover { white-space:normal; word-break:break-all; }
+
+    /* Modal */
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); backdrop-filter:blur(4px); z-index:1000; display:none; align-items:center; justify-content:center; }
+    .modal-overlay.show { display:flex; }
+    .modal-box { background:var(--bg-card,#0f1428); border:1px solid rgba(59,130,246,.2); border-radius:16px; padding:28px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+    .modal-box h2 { font-size:1.15rem; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    .modal-box .form-label { font-size:.82rem; color:var(--muted,#64748b); }
+    .modal-box .form-control, .modal-box .form-select { font-size:.88rem; }
+    .modal-footer { display:flex; justify-content:flex-end; gap:8px; margin-top:18px; padding-top:14px; border-top:1px solid rgba(255,255,255,.06); }
+
+    /* Toast notification */
+    .toast-container { position:fixed; top:20px; right:20px; z-index:2000; display:flex; flex-direction:column; gap:8px; }
+    .toast-msg { padding:12px 20px; border-radius:10px; font-size:.88rem; animation:toastIn .3s ease; box-shadow:0 4px 20px rgba(0,0,0,.3); }
+    .toast-msg.success { background:rgba(22,163,74,.15); border:1px solid rgba(22,163,74,.3); color:#4ade80; }
+    .toast-msg.error { background:rgba(220,38,38,.15); border:1px solid rgba(220,38,38,.3); color:#f87171; }
+    @keyframes toastIn { from { opacity:0; transform:translateX(30px); } to { opacity:1; transform:translateX(0); } }
+
+    /* Password display box */
+    .pw-display { background:rgba(59,130,246,.08); border:1px dashed rgba(59,130,246,.3); border-radius:8px; padding:12px 16px; margin-top:12px; font-family:monospace; font-size:.95rem; user-select:all; }
+
+    /* ═══════════════════════════════════════════
+       LIGHT MODE OVERRIDES
+       ═══════════════════════════════════════════ */
+    body.light-mode .stat-bar .stat-item { background: rgba(59,130,246,.06); color: #334155; }
+    body.light-mode .detail-panel { background: #f8fafc; border-color: rgba(59,130,246,.12); }
+    body.light-mode .detail-panel .detail-row { border-bottom-color: rgba(148,163,184,.12); }
+    body.light-mode .detail-panel .detail-label { color: #64748b; }
+    body.light-mode .perm-tag { background: rgba(59,130,246,.08); color: #2563eb; }
+    body.light-mode .admin-tabs { border-bottom-color: rgba(148,163,184,.2); }
+    body.light-mode .admin-tabs .tab-btn { color: #64748b; }
+    body.light-mode .admin-tabs .tab-btn:hover { color: #334155; }
+    body.light-mode .admin-tabs .tab-btn.active { color: #2563eb; border-bottom-color: #2563eb; }
+    body.light-mode .modal-overlay { background: rgba(0,0,0,.3); }
+    body.light-mode .modal-box { background: #ffffff; border-color: rgba(59,130,246,.15); box-shadow: 0 20px 60px rgba(0,0,0,.1); }
+    body.light-mode .modal-footer { border-top-color: rgba(148,163,184,.15); }
+    body.light-mode .toast-msg.success { background: #ecfdf5; border-color: rgba(22,163,74,.25); color: #16a34a; }
+    body.light-mode .toast-msg.error { background: #fef2f2; border-color: rgba(220,38,38,.25); color: #dc2626; }
+    body.light-mode .badge-role.admin { background: rgba(139,92,246,.1); color: #7c3aed; }
+    body.light-mode .badge-role.techniker { background: rgba(59,130,246,.1); color: #2563eb; }
+    body.light-mode .badge-role.viewer { background: rgba(100,116,139,.1); color: #475569; }
+    body.light-mode .pw-display { background: rgba(59,130,246,.05); border-color: rgba(59,130,246,.2); color: #1e293b; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-title">Admin</div>
+    </div>
+  </header>
+
+  <main class="page-wrap">
+    <div class="app-shell">
+      <section class="main-content">
+
+        <!-- Header -->
+        <div class="card mb-3">
+          <div class="admin-header">
+            <div>
+              <h1><i class="fas fa-shield-alt" style="color:#3b82f6;margin-right:6px;"></i>Admin – Benutzerverwaltung</h1>
+              <div class="subtitle">Benutzer verwalten, Rollen zuweisen, Audit Logs einsehen.</div>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+              <div class="small muted">Login: <span id="sidebarLoginAt">-</span></div>
+              <a href="cross-connects.html" class="btn btn-sm"><i class="fas fa-arrow-left"></i> Zurueck</a>
+              <a href="#" data-action="logout" class="btn btn-sm"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats bar -->
+        <div class="stat-bar" id="statsBar">
+          <div class="stat-item"><strong id="statTotal">0</strong> Benutzer</div>
+          <div class="stat-item"><strong id="statActive">0</strong> aktiv</div>
+          <div class="stat-item"><strong id="statInactive">0</strong> inaktiv</div>
+          <div class="stat-item"><strong id="statAdmins">0</strong> Admins</div>
+          <div class="stat-item"><strong id="statTechs">0</strong> Techniker</div>
+          <div class="stat-item"><strong id="statViewers">0</strong> Viewer</div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="admin-tabs">
+          <button class="tab-btn active" data-tab="users"><i class="fas fa-users"></i> Benutzer</button>
+          <button class="tab-btn" data-tab="audit"><i class="fas fa-clipboard-list"></i> Audit Log</button>
+        </div>
+
+        <!-- TAB: Users -->
+        <div class="tab-content active" id="tab-users">
+          <div class="card mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h2 class="card-title" style="margin:0;font-size:1.05rem;"><i class="fas fa-users" style="margin-right:6px;color:#3b82f6;"></i>Benutzerliste</h2>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm" id="btnReloadUsers"><i class="fas fa-sync-alt"></i> Reload</button>
+                <button class="btn btn-sm btn-primary" id="btnCreateUser"><i class="fas fa-user-plus"></i> Benutzer anlegen</button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm table-striped align-middle" id="usersTable">
+                <thead>
+                  <tr>
+                    <th style="width:40px;">ID</th>
+                    <th>Benutzername</th>
+                    <th>Vollname</th>
+                    <th>Rolle</th>
+                    <th>Status</th>
+                    <th>Letzte Anmeldung</th>
+                    <th class="text-end" style="width:120px;">Aktion</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- User Detail Panel -->
+          <div class="card mb-3">
+            <h2 class="card-title" style="font-size:1.05rem;"><i class="fas fa-user-cog" style="margin-right:6px;color:#3b82f6;"></i>Benutzer Detail</h2>
+            <div id="userDetailEmpty" class="small muted" style="padding:12px 0;">
+              <i class="fas fa-info-circle"></i> Waehle einen Benutzer aus der Liste um Details anzuzeigen.
+            </div>
+            <div id="userDetail" class="d-none">
+              <div class="detail-panel">
+                <div class="row">
+                  <div class="col-lg-6">
+                    <div class="detail-row"><span class="detail-label">ID</span><span class="detail-value" id="detailId">-</span></div>
+                    <div class="detail-row"><span class="detail-label">Benutzername</span><span class="detail-value fw-semibold" id="detailUsername">-</span></div>
+                    <div class="detail-row"><span class="detail-label">Vollname</span><span class="detail-value" id="detailFullName">-</span></div>
+                    <div class="detail-row"><span class="detail-label">E-Mail</span><span class="detail-value" id="detailEmail">-</span></div>
+                    <div class="detail-row"><span class="detail-label">Rolle</span><span class="detail-value" id="detailRole">-</span></div>
+                    <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value" id="detailStatus">-</span></div>
+                  </div>
+                  <div class="col-lg-6">
+                    <div class="detail-row"><span class="detail-label">Erstellt am</span><span class="detail-value" id="detailCreatedAt">-</span></div>
+                    <div class="detail-row"><span class="detail-label">Letzte Anmeldung</span><span class="detail-value" id="detailLastLogin">-</span></div>
+                    <div class="detail-row"><span class="detail-label">Passwortwechsel erforderlich</span><span class="detail-value" id="detailForcePw">-</span></div>
+                    <div class="detail-row">
+                      <span class="detail-label">Berechtigungen</span>
+                      <span class="detail-value">
+                        <div class="perm-list" id="detailPermissions"></div>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Edit Form (inline) -->
+                <hr style="border-color:rgba(255,255,255,.06);margin:16px 0;" />
+                <h3 style="font-size:.95rem;margin-bottom:12px;"><i class="fas fa-edit" style="color:#3b82f6;margin-right:4px;"></i>Bearbeiten</h3>
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label class="form-label small">Vollname</label>
+                    <input type="text" class="form-control form-control-sm" id="editFullName" />
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label small">E-Mail</label>
+                    <input type="email" class="form-control form-control-sm" id="editEmail" />
+                  </div>
+                  <div class="col-md-2">
+                    <label class="form-label small">Rolle</label>
+                    <select class="form-select form-select-sm" id="editRole">
+                      <option value="viewer">viewer</option>
+                      <option value="techniker">techniker</option>
+                      <option value="admin">admin</option>
+                    </select>
+                  </div>
+                  <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-primary btn-sm w-100" id="btnSaveUser"><i class="fas fa-save"></i> Speichern</button>
+                  </div>
+                </div>
+
+                <!-- Action buttons -->
+                <div class="action-bar">
+                  <button class="btn btn-sm btn-outline-warning" id="btnResetPassword"><i class="fas fa-key"></i> Passwort zuruecksetzen</button>
+                  <button class="btn btn-sm" id="btnToggleActive"><i class="fas fa-power-off"></i> <span id="toggleActiveText">Deaktivieren</span></button>
+                  <button class="btn btn-sm btn-outline-info" id="btnShowUserAudit"><i class="fas fa-history"></i> Audit-Verlauf</button>
+                  <button class="btn btn-sm btn-outline-danger" id="btnDeleteUser"><i class="fas fa-trash-alt"></i> Benutzer loeschen</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: Audit Log -->
+        <div class="tab-content" id="tab-audit">
+          <div class="card">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h2 class="card-title" style="margin:0; font-size:1.05rem;"><i class="fas fa-clipboard-list" style="margin-right:6px;color:#3b82f6;"></i>Audit Log</h2>
+              <button class="btn btn-sm" id="btnReloadAudit"><i class="fas fa-sync-alt"></i> Reload</button>
+            </div>
+            <div class="row g-2 align-items-end mb-3">
+              <div class="col-md-2">
+                <label class="form-label small">Actor</label>
+                <input class="form-control form-control-sm" id="auditActor" placeholder="ID oder Name" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small">Target</label>
+                <input class="form-control form-control-sm" id="auditTarget" placeholder="ID oder Name" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small">Action</label>
+                <input class="form-control form-control-sm" id="auditAction" placeholder="z.B. login, role_change" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small">Von</label>
+                <input type="date" class="form-control form-control-sm" id="auditFrom" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small">Bis</label>
+                <input type="date" class="form-control form-control-sm" id="auditTo" />
+              </div>
+              <div class="col-md-2 d-flex gap-2">
+                <button class="btn btn-primary btn-sm flex-grow-1" id="btnApplyAudit"><i class="fas fa-filter"></i> Filter</button>
+                <button class="btn btn-sm" id="btnClearAudit" title="Filter zuruecksetzen"><i class="fas fa-times"></i></button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm table-striped align-middle" id="auditTable">
+                <thead>
+                  <tr>
+                    <th style="width:150px;">Zeit</th>
+                    <th>Actor</th>
+                    <th>Action</th>
+                    <th>Target</th>
+                    <th>Typ</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+              <div class="small muted" id="auditCount">0 Eintraege</div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <!-- Create User Modal -->
+  <div class="modal-overlay" id="createUserModal">
+    <div class="modal-box">
+      <h2><i class="fas fa-user-plus" style="color:#3b82f6;"></i> Neuen Benutzer anlegen</h2>
+      <form id="createUserForm" autocomplete="off">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Benutzername *</label>
+            <input type="text" class="form-control form-control-sm" id="newUsername" required autocomplete="off" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Vollname</label>
+            <input type="text" class="form-control form-control-sm" id="newFullName" autocomplete="off" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">E-Mail (optional)</label>
+            <input type="email" class="form-control form-control-sm" id="newEmail" autocomplete="off" />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Rolle</label>
+            <select class="form-select form-select-sm" id="newRole">
+              <option value="viewer">viewer</option>
+              <option value="techniker" selected>techniker</option>
+              <option value="admin">admin</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Temporaeres Passwort (leer = generiert)</label>
+            <input type="text" class="form-control form-control-sm" id="newPassword" placeholder="wird automatisch generiert" autocomplete="new-password" />
+          </div>
+          <div class="col-md-6 d-flex align-items-end gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="newForceChange" checked />
+              <label class="form-check-label small" for="newForceChange">Passwortaenderung beim ersten Login erzwingen</label>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-sm" id="btnCancelCreate">Abbrechen</button>
+          <button type="submit" class="btn btn-sm btn-primary"><i class="fas fa-user-plus"></i> Anlegen</button>
+        </div>
+      </form>
+      <!-- Result area for temp password display -->
+      <div id="createResult" class="d-none">
+        <div class="mt-3" style="border-top:1px solid rgba(255,255,255,.06);padding-top:14px;">
+          <div class="small fw-semibold" style="color:#4ade80;"><i class="fas fa-check-circle"></i> Benutzer wurde erstellt!</div>
+          <div class="small muted mt-1">Bitte die Zugangsdaten an den Benutzer weitergeben:</div>
+          <div class="pw-display">
+            <div>Benutzername: <strong id="resultUsername">-</strong></div>
+            <div>Passwort: <strong id="resultPassword">-</strong></div>
+          </div>
+          <div class="small muted mt-2"><i class="fas fa-info-circle"></i> Dieses Passwort wird nur einmal angezeigt.</div>
+          <div class="d-flex justify-content-end mt-3">
+            <button class="btn btn-sm btn-primary" id="btnCloseCreateResult">Schliessen</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reset Password Modal -->
+  <div class="modal-overlay" id="resetPwModal">
+    <div class="modal-box" style="max-width:420px;">
+      <h2><i class="fas fa-key" style="color:#f59e0b;"></i> Passwort zuruecksetzen</h2>
+      <div class="small muted mb-3">Fuer Benutzer: <strong id="resetPwUser">-</strong></div>
+      <form id="resetPwForm">
+        <div class="mb-3">
+          <label class="form-label">Neues Passwort (leer = generiert)</label>
+          <input type="text" class="form-control form-control-sm" id="resetPwInput" placeholder="wird automatisch generiert" autocomplete="new-password" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-sm" id="btnCancelReset">Abbrechen</button>
+          <button type="submit" class="btn btn-sm btn-warning"><i class="fas fa-key"></i> Zuruecksetzen</button>
+        </div>
+      </form>
+      <div id="resetResult" class="d-none">
+        <div class="mt-3" style="border-top:1px solid rgba(255,255,255,.06);padding-top:14px;">
+          <div class="small fw-semibold" style="color:#4ade80;"><i class="fas fa-check-circle"></i> Passwort wurde zurueckgesetzt!</div>
+          <div class="pw-display">Neues Passwort: <strong id="resetResultPw">-</strong></div>
+          <div class="small muted mt-2"><i class="fas fa-info-circle"></i> Der Benutzer muss beim naechsten Login sein Passwort aendern.</div>
+          <div class="d-flex justify-content-end mt-3">
+            <button class="btn btn-sm btn-primary" id="btnCloseResetResult">Schliessen</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dock-zone" aria-hidden="true"></div>
+
+  <!-- Toast container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <nav class="bottom-dock" aria-label="Hauptnavigation">
+    <div class="dock-meta">
+      <div class="dock-brand">Connection Manager</div>
+      <div class="userbox dock-userbox" id="userBox"></div>
+    </div>
+    <a class="dock-item" href="dashboard.html" data-nav>Dashboard</a>
+    <a class="dock-item" href="kw-planning.html" data-nav>KW Planung</a>
+    <a class="dock-item" href="cross-connects.html" data-nav>Cross Connects</a>
+    <a class="dock-item" href="patchpanels.html" data-nav>Patchpanels</a>
+    <a class="dock-item" href="historical-archive.html" data-nav>Leitungsarchiv</a>
+    <a class="dock-item" href="migration-audit.html" data-nav>Migration Audit</a>
+    <a class="dock-item" href="admin.html" data-nav data-admin-nav>Admin</a>
+  </nav>
+
+  <script src="config.js"></script>
+  <script src="nav-auth.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="de" class="kw-planning-page">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>KW Planung</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* ── KW Planning specific styles ── */
+    .kw-stat-strip {
+      display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px;
+    }
+    .kw-stat-chip {
+      display: flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 6px;
+      font-size: .82rem; font-weight: 600;
+      background: var(--surface-2, #23262b); color: var(--text, #e0e0e0);
+    }
+    .kw-stat-chip .chip-count {
+      min-width: 20px; text-align: center; padding: 1px 6px;
+      border-radius: 4px; background: var(--surface-3, #31343a);
+    }
+    .kw-stat-chip.install  { border-left: 3px solid #4fc3f7; }
+    .kw-stat-chip.deinstall { border-left: 3px solid #ef5350; }
+    .kw-stat-chip.linemove { border-left: 3px solid #ffb74d; }
+    .kw-stat-chip.pathmove { border-left: 3px solid #ab47bc; }
+    .kw-stat-chip.done     { border-left: 3px solid #66bb6a; }
+    .kw-stat-chip.open     { border-left: 3px solid #fdd835; }
+
+    .type-pill {
+      display: inline-block; padding: 2px 10px; border-radius: 4px;
+      font-size: .78rem; font-weight: 700; letter-spacing: .03em;
+      text-transform: uppercase;
+    }
+    .type-pill.install  { background: #0d3e5c; color: #4fc3f7; }
+    .type-pill.deinstall { background: #5c1a1a; color: #ef5350; }
+    .type-pill.linemove { background: #5c3a0d; color: #ffb74d; }
+    .type-pill.pathmove { background: #3a1a5c; color: #ce93d8; }
+
+    .kw-tabs {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;
+    }
+    .kw-tab {
+      padding: 5px 14px; border-radius: 5px; border: 1px solid var(--border, #333);
+      background: transparent; color: var(--text-muted, #999); cursor: pointer;
+      font-size: .82rem; font-weight: 600; transition: .15s;
+    }
+    .kw-tab:hover { background: var(--surface-2, #23262b); color: var(--text, #e0e0e0); }
+    .kw-tab.active {
+      background: var(--primary, #3b82f6); color: #fff; border-color: transparent;
+    }
+    .kw-tab .tab-count {
+      margin-left: 4px; font-size: .75rem; opacity: .8;
+    }
+
+    .detail-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px 24px; margin-top: 8px;
+    }
+    .detail-item { display:flex; flex-direction:column; gap:2px; }
+    .detail-label { font-size:.75rem; color:var(--muted,#999); text-transform:uppercase; letter-spacing:.04em; }
+    .detail-value { font-size:.9rem; font-weight:500; }
+
+    .expand-row { display: none; }
+    .expand-row.show { display: table-row; }
+    .table-list-table tbody td.expand-cell { padding: 10px 16px; background: var(--surface-2, #1a1d22); border-bottom: 2px solid var(--border, #333); }
+
+    .kw-progress {
+      height: 6px; border-radius: 3px; background: var(--surface-3, #31343a);
+      overflow: hidden; margin-top: 6px;
+    }
+    .kw-progress-bar {
+      height: 100%; border-radius: 3px; background: #66bb6a; transition: width .3s;
+    }
+
+    /* ── KW Finish / Report Buttons ── */
+    .btn-finish {
+      background: #e65100; color: #fff; border-color: #e65100; font-weight: 700;
+    }
+    .btn-finish:hover { background: #bf360c; border-color: #bf360c; }
+    .btn-report {
+      background: #1b5e20; color: #fff; border-color: #1b5e20; font-weight: 700;
+    }
+    .btn-report:hover { background: #2e7d32; border-color: #2e7d32; }
+    .kw-completed-banner {
+      background: #1b5e20; color: #fff; padding: 10px 16px; border-radius: 8px;
+      font-weight: 700; font-size: .9rem; margin-top: 8px;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    /* ── New Action Buttons ── */
+    .action-bar {
+      display: flex; gap: 10px; flex-wrap: wrap;
+    }
+    .action-btn {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border, #333);
+      background: var(--surface-2, #23262b); color: var(--text, #e0e0e0);
+      cursor: pointer; font-size: .88rem; font-weight: 600; transition: .15s;
+    }
+    .action-btn:hover {
+      background: var(--surface-3, #31343a); border-color: var(--primary, #3b82f6);
+    }
+    .action-btn .action-icon {
+      font-size: 1.2rem; width: 28px; height: 28px; display: flex;
+      align-items: center; justify-content: center; border-radius: 6px;
+    }
+    .action-btn.install  .action-icon { background: #0d3e5c; color: #4fc3f7; }
+    .action-btn.deinstall .action-icon { background: #5c1a1a; color: #ef5350; }
+    .action-btn.linemove .action-icon { background: #5c3a0d; color: #ffb74d; }
+    .action-btn.pathmove .action-icon { background: #3a1a5c; color: #ce93d8; }
+
+    /* ── Create Modal ── */
+    .modal-bg {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.62); z-index: 1000;
+      overflow-y: auto;
+    }
+    .modal-bg.show { display: block; }
+    .modal-panel {
+      max-width: 1060px; margin: 24px auto;
+      border-radius: 14px;
+      background: var(--card-bg, #181a1e); padding: 20px 24px 24px;
+      border: 1px solid var(--border, #333);
+      margin-bottom: 40px;
+    }
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; margin-bottom: 16px;
+    }
+    .modal-header h3 { margin: 0; font-size: 1.1rem; }
+
+    /* ── Form Section ── */
+    .form-section {
+      margin-bottom: 16px; padding: 14px 16px; border-radius: 10px;
+      background: var(--surface-2, #23262b); border: 1px solid var(--border, #333);
+    }
+    .form-section-title {
+      font-size: .85rem; font-weight: 700; margin-bottom: 10px;
+      color: var(--text-muted, #999); text-transform: uppercase; letter-spacing: .04em;
+    }
+    .form-row {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px; margin-bottom: 8px;
+    }
+    .form-row label {
+      display: block; font-size: .78rem; font-weight: 600;
+      color: var(--text-muted, #999); margin-bottom: 3px;
+    }
+    .form-row .span-2 { grid-column: span 2; }
+
+    /* ── CC Preview Card ── */
+    .cc-preview {
+      padding: 12px 16px; border-radius: 10px;
+      background: var(--surface-3, #31343a); border: 1px solid var(--border, #333);
+      margin-top: 8px;
+    }
+    .cc-preview .cc-label {
+      font-size: .75rem; color: var(--text-muted, #999); margin-bottom: 2px;
+    }
+    .cc-preview .cc-val {
+      font-weight: 700; font-size: .9rem;
+    }
+    .cc-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 6px;
+    }
+
+    /* ── Port Grid (cassette style) ── */
+    .cassette-row {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px; align-items: start;
+    }
+    .cassette {
+      border: 1px solid var(--border, #333); border-radius: 10px;
+      padding: 10px; background: var(--surface-3, #31343a);
+    }
+    .cassette h4 {
+      font-size: .78rem; font-weight: 700; margin: 0 0 6px;
+      color: var(--text-muted, #999);
+    }
+    .ports-grid {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px;
+    }
+    .pbtn {
+      border: 1px solid rgba(148,163,184,.3); border-radius: 8px;
+      padding: 6px 0; font-weight: 700; cursor: pointer;
+      font-size: 11px; color: #e2e8f0; text-align: center;
+      background: transparent; transition: .12s;
+    }
+    .pbtn.free {
+      background: rgba(16,185,129,.18); border-color: rgba(16,185,129,.45);
+    }
+    .pbtn.free:hover {
+      background: rgba(16,185,129,.35); transform: translateY(-1px);
+    }
+    .pbtn.occ {
+      background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.4);
+      cursor: not-allowed; opacity: .85;
+    }
+    .pbtn.na {
+      background: rgba(148,163,184,.08); border-color: rgba(148,163,184,.2);
+      cursor: not-allowed; opacity: .7;
+    }
+    .pbtn.sel {
+      outline: 3px solid rgba(59,130,246,.45);
+      box-shadow: 0 0 0 1px rgba(59,130,246,.25);
+    }
+    .port-grid-wrap {
+      margin-top: 8px; max-height: 340px; overflow-y: auto;
+      padding-right: 4px;
+    }
+    .port-grid-wrap::-webkit-scrollbar { width: 5px; }
+    .port-grid-wrap::-webkit-scrollbar-thumb { background: var(--border, #444); border-radius: 4px; }
+
+    /* ── Serial Lookup ── */
+    .serial-lookup {
+      display: flex; gap: 10px; align-items: end; flex-wrap: wrap;
+    }
+    .serial-lookup .input { flex: 1; min-width: 180px; }
+
+    /* ── Info Note ── */
+    .info-note {
+      padding: 8px 14px; border-radius: 8px; font-size: .82rem;
+      background: rgba(59,130,246,.1); border: 1px solid rgba(59,130,246,.25);
+      color: #93c5fd; margin-bottom: 12px;
+    }
+
+    /* PP Selector Row */
+    .pp-select-row {
+      display: flex; gap: 10px; align-items: end; flex-wrap: wrap; margin-bottom: 8px;
+    }
+    .pp-select-row > div { flex: 1; min-width: 160px; }
+    .pp-selected-label {
+      font-size: .82rem; font-weight: 700; margin-top: 4px; color: #66bb6a;
+    }
+
+    /* ── Autocomplete dropdown ── */
+    .autocomplete-list {
+      display: none; position: absolute; left: 0; right: 0; top: 100%;
+      z-index: 300; max-height: 200px; overflow-y: auto;
+      background: var(--surface-3, #31343a); border: 1px solid var(--border, #444);
+      border-radius: 0 0 8px 8px; box-shadow: 0 6px 18px rgba(0,0,0,.4);
+    }
+    .autocomplete-list.show { display: block; }
+    .autocomplete-item {
+      padding: 7px 12px; cursor: pointer; font-size: .84rem;
+      color: var(--text, #e0e0e0); transition: background .1s;
+    }
+    .autocomplete-item:hover, .autocomplete-item.active {
+      background: var(--primary, #3b82f6); color: #fff;
+    }
+    .autocomplete-item .ac-sub {
+      font-size: .72rem; color: var(--text-muted, #999); margin-left: 6px;
+    }
+    .autocomplete-item:hover .ac-sub { color: rgba(255,255,255,.7); }
+
+    /* ── Auto-fill result box ── */
+    .auto-fill-result {
+      padding: 10px 14px; border-radius: 8px; margin-top: 8px;
+      background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.25);
+      font-size: .84rem;
+    }
+    .auto-fill-result .af-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px;
+    }
+    .auto-fill-result .af-label { font-size: .72rem; color: var(--text-muted, #999); }
+    .auto-fill-result .af-val   { font-weight: 700; }
+
+    /* ── BB Card Row ── */
+    .bb-card-row {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px;
+    }
+    .bb-card {
+      padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border, #333);
+      background: var(--surface-3, #31343a); cursor: pointer;
+      font-size: .84rem; font-weight: 600; transition: .12s;
+    }
+    .bb-card:hover {
+      border-color: var(--primary, #3b82f6); background: rgba(59,130,246,.1);
+    }
+    .bb-card.selected {
+      border-color: #10b981; background: rgba(16,185,129,.12);
+      box-shadow: 0 0 0 2px rgba(16,185,129,.3);
+    }
+    .bb-card .bb-label { font-size: .72rem; color: var(--text-muted, #999); }
+
+    /* ── KW Navigator ── */
+    .kw-nav-card { overflow: visible; }
+    .kw-nav-header {
+      display: flex; align-items: flex-start; gap: 24px; flex-wrap: wrap;
+    }
+    .kw-nav-left { flex: 0 0 auto; min-width: 180px; }
+    .kw-nav-center { flex: 1 1 auto; min-width: 280px; }
+    .kw-nav-right {
+      flex: 0 0 auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+      padding-top: 4px;
+    }
+    .kw-nav-selectors {
+      display: flex; gap: 8px; margin-bottom: 10px; align-items: center;
+    }
+    .kw-nav-selectors .select { width: auto; min-width: 100px; }
+    .kw-chips-bar {
+      display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+    }
+    .kw-chip {
+      position: relative;
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 56px; padding: 6px 12px; border-radius: 8px;
+      font-size: .82rem; font-weight: 700; cursor: pointer;
+      border: 2px solid transparent; transition: all .15s ease;
+      user-select: none;
+    }
+    .kw-chip.gray {
+      background: var(--surface-3, #31343a); color: var(--text-muted, #888);
+      border-color: var(--border, #3a3d44);
+    }
+    .kw-chip.gray:hover { background: var(--surface-2, #3a3d46); color: var(--text, #ccc); border-color: #555; }
+    .kw-chip.blue {
+      background: rgba(59,130,246,.15); color: #60a5fa;
+      border-color: rgba(59,130,246,.4);
+    }
+    .kw-chip.blue:hover { background: rgba(59,130,246,.25); border-color: rgba(59,130,246,.6); }
+    .kw-chip.green {
+      background: rgba(34,197,94,.12); color: #4ade80;
+      border-color: rgba(34,197,94,.35);
+    }
+    .kw-chip.green:hover { background: rgba(34,197,94,.22); border-color: rgba(34,197,94,.5); }
+    .kw-chip.red {
+      background: rgba(239,68,68,.12); color: #f87171;
+      border-color: rgba(239,68,68,.35);
+    }
+    .kw-chip.red:hover { background: rgba(239,68,68,.22); border-color: rgba(239,68,68,.5); }
+    .kw-chip.active {
+      outline: 3px solid rgba(59,130,246,.5);
+      box-shadow: 0 0 0 1px rgba(59,130,246,.3);
+      transform: translateY(-1px);
+    }
+    .kw-chip.current-week::after {
+      content: '';
+      position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%);
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #f59e0b;
+    }
+    .kw-info-bar {
+      margin-top: 14px; padding: 12px 16px; border-radius: 10px;
+      background: var(--surface-2, #1e2028); border: 1px solid var(--border, #333);
+    }
+    .kw-info-main {
+      font-size: .88rem; margin-bottom: 6px;
+    }
+    .kw-tooltip-wrap {
+      position: fixed; z-index: 9999; pointer-events: none;
+      padding: 10px 14px; border-radius: 10px;
+      background: var(--card-bg, #1a1d22); border: 1px solid var(--border, #444);
+      box-shadow: 0 8px 28px rgba(0,0,0,.55);
+      font-size: .82rem; color: var(--text, #e0e0e0);
+      max-width: 240px; opacity: 0; transition: opacity .12s;
+    }
+    .kw-tooltip-wrap.visible { opacity: 1; }
+    .kw-tooltip-wrap .tt-label { font-weight: 700; margin-bottom: 4px; font-size: .9rem; }
+    .kw-tooltip-wrap .tt-row { display: flex; justify-content: space-between; gap: 12px; padding: 1px 0; }
+    .kw-tooltip-wrap .tt-muted { color: var(--text-muted, #999); }
+
+    /* ═══════════════════════════════════════════
+       LIGHT MODE OVERRIDES
+       ═══════════════════════════════════════════ */
+    body.light-mode .kw-stat-chip {
+      background: #f1f5f9; color: #334155;
+    }
+    body.light-mode .kw-stat-chip .chip-count { background: #e2e8f0; }
+    body.light-mode .type-pill.install  { background: #dbeafe; color: #1d4ed8; }
+    body.light-mode .type-pill.deinstall { background: #fee2e2; color: #b91c1c; }
+    body.light-mode .type-pill.linemove { background: #fef3c7; color: #92400e; }
+    body.light-mode .type-pill.pathmove { background: #f3e8ff; color: #7c3aed; }
+    body.light-mode .kw-tab { background: #ffffff; color: #64748b; border-color: rgba(148,163,184,.25); }
+    body.light-mode .kw-tab:hover { background: #f1f5f9; color: #334155; }
+    body.light-mode .kw-tab.active { background: #3b82f6; color: #fff; border-color: transparent; }
+    body.light-mode .table-list-table tbody td.expand-cell { background: #f1f5f9; border-bottom-color: rgba(148,163,184,.2); }
+    body.light-mode .kw-progress { background: #e2e8f0; }
+    body.light-mode .action-btn { background: #ffffff; color: #334155; border-color: rgba(148,163,184,.25); }
+    body.light-mode .action-btn:hover { background: #f1f5f9; border-color: rgba(59,130,246,.3); }
+    body.light-mode .action-btn.install  .action-icon { background: #dbeafe; color: #1d4ed8; }
+    body.light-mode .action-btn.deinstall .action-icon { background: #fee2e2; color: #b91c1c; }
+    body.light-mode .action-btn.linemove .action-icon { background: #fef3c7; color: #92400e; }
+    body.light-mode .action-btn.pathmove .action-icon { background: #f3e8ff; color: #7c3aed; }
+    body.light-mode .modal-panel { background: #ffffff; border-color: rgba(148,163,184,.22); }
+    body.light-mode .form-section { background: #f8fafc; border-color: rgba(148,163,184,.2); }
+    body.light-mode .cc-preview { background: #f1f5f9; border-color: rgba(148,163,184,.2); }
+    body.light-mode .cassette { background: #f8fafc; border-color: rgba(148,163,184,.2); }
+    body.light-mode .pbtn { color: #334155; border-color: rgba(148,163,184,.3); }
+    body.light-mode .info-note { background: rgba(59,130,246,.06); border-color: rgba(59,130,246,.18); color: #1e40af; }
+    body.light-mode .autocomplete-list { background: #ffffff; border-color: rgba(148,163,184,.25); box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+    body.light-mode .autocomplete-item { color: #334155; }
+    body.light-mode .autocomplete-item .ac-sub { color: #64748b; }
+    body.light-mode .auto-fill-result { background: rgba(16,185,129,.05); border-color: rgba(16,185,129,.18); }
+    body.light-mode .bb-card { background: #f8fafc; border-color: rgba(148,163,184,.2); }
+    body.light-mode .bb-card:hover { background: rgba(59,130,246,.06); border-color: rgba(59,130,246,.3); }
+    body.light-mode .kw-chip.gray { background: #f1f5f9; color: #475569; border-color: rgba(148,163,184,.25); }
+    body.light-mode .kw-chip.gray:hover { background: #e2e8f0; color: #1e293b; border-color: rgba(148,163,184,.4); }
+    body.light-mode .kw-info-bar { background: #f8fafc; border-color: rgba(148,163,184,.2); }
+    body.light-mode .kw-tooltip-wrap { background: #ffffff; border-color: rgba(148,163,184,.22); box-shadow: 0 8px 28px rgba(0,0,0,.08); color: #334155; }
+    body.light-mode .kw-tooltip-wrap .tt-muted { color: #64748b; }
+  </style>
+</head>
+<body class="kw-planning-page">
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="topbar-title">KW Planung</div>
+    </div>
+  </header>
+
+  <main class="page-wrap">
+    <div class="app-shell">
+      <section class="main-content">
+
+        <!-- ── Header Card: KW Navigator ── -->
+        <div class="card kw-nav-card">
+          <div class="kw-nav-header">
+            <div class="kw-nav-left">
+              <h1 class="card-title" style="margin-bottom:4px;">Wochenplanung</h1>
+              <div class="card-subtitle">Kalenderwoche ausw&auml;hlen, automatisch anlegen und Ma&szlig;nahmen verwalten.</div>
+            </div>
+            <div class="kw-nav-center">
+              <div class="kw-nav-selectors">
+                <select id="kwYear" class="select"></select>
+                <select id="kwMonth" class="select"></select>
+              </div>
+              <div class="kw-chips-bar" id="kwChipsBar"></div>
+            </div>
+            <div class="kw-nav-right">
+              <button id="btnFinishKw" class="btn btn-finish" data-write>&#10004; KW abschliessen</button>
+              <button id="btnDownloadReport" class="btn btn-report">&#128196; Report herunterladen</button>
+            </div>
+          </div>
+
+          <div id="kwInfoBar" class="kw-info-bar" style="display:none;">
+            <div class="kw-info-main" id="kwInfoMain">Bitte Kalenderwoche w&auml;hlen.</div>
+            <div class="kw-progress" id="planProgress" style="display:none;">
+              <div class="kw-progress-bar" id="planProgressBar" style="width:0%"></div>
+            </div>
+            <div class="kw-stat-strip" id="kwStats"></div>
+          </div>
+        </div>
+        <div class="kw-tooltip-wrap" id="kwTooltip"></div>
+
+        <!-- ── New Action Card (replaces Excel Import) ── -->
+        <div class="card" id="actionCard">
+          <div style="margin-bottom:10px;">
+            <div class="card-title" style="font-size:.95rem; margin:0 0 2px;">Neue Massnahme erfassen</div>
+            <div class="small muted">Waehlen Sie den Massnahmentyp, um eine neue Aenderung fuer diese KW zu planen.</div>
+          </div>
+          <div class="action-bar">
+            <button class="action-btn install" data-write id="btnNewInstall">
+              <span class="action-icon">+</span> Neue Installation
+            </button>
+            <button class="action-btn deinstall" data-write id="btnNewDeinstall">
+              <span class="action-icon">&minus;</span> Deinstallation
+            </button>
+            <button class="action-btn linemove" data-write id="btnNewLineMove">
+              <span class="action-icon">&harr;</span> Line Move
+            </button>
+            <button class="action-btn pathmove" data-write id="btnNewPathMove">
+              <span class="action-icon">&#8644;</span> Path Move
+            </button>
+          </div>
+        </div>
+
+        <!-- ── Filter Tabs + Table ── -->
+        <div class="card">
+          <div class="kw-tabs" id="typeTabs">
+            <button class="kw-tab active" data-filter="NEW_INSTALL">Install <span class="tab-count" id="countInstall">0</span></button>
+            <button class="kw-tab" data-filter="DEINSTALL">Deinstall <span class="tab-count" id="countDeinstall">0</span></button>
+            <button class="kw-tab" data-filter="LINE_MOVE">Line Move <span class="tab-count" id="countLineMove">0</span></button>
+            <button class="kw-tab" data-filter="PATH_MOVE">Path Move <span class="tab-count" id="countPathMove">0</span></button>
+            <span style="flex:1;"></span>
+            <div class="kw-tabs" style="margin-bottom:0;">
+              <button class="kw-tab active" data-sfilter="open">Offen <span class="tab-count" id="countOpen">0</span></button>
+              <button class="kw-tab" data-sfilter="done">Erledigt <span class="tab-count" id="countDone">0</span></button>
+              <button class="kw-tab" data-sfilter="all">Alle <span class="tab-count" id="countAllStatus">0</span></button>
+            </div>
+          </div>
+
+          <div class="table-scroll">
+            <table class="table-list-table table-list" style="table-layout:auto; width:100%;">
+              <thead>
+                <tr>
+                  <th style="width:36px;"></th>
+                  <th style="width:80px;">Typ</th>
+                  <th>Serial / Product ID</th>
+                  <th>Logical Name</th>
+                  <th style="width:100px;">Status</th>
+                  <th style="width:105px;">Erstellt</th>
+                  <th style="min-width:180px; white-space:nowrap; text-align:right; padding-right:18px;">Aktionen</th>
+                </tr>
+              </thead>
+              <tbody id="changesBody"></tbody>
+            </table>
+          </div>
+          <div class="empty-state" id="changesEmpty">Keine Massnahmen fuer diese KW vorhanden.</div>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <div class="dock-zone" aria-hidden="true"></div>
+
+  <nav class="bottom-dock" aria-label="Hauptnavigation">
+    <div class="dock-meta">
+      <div class="dock-brand">Connection Manager</div>
+      <div class="userbox dock-userbox" id="userBox"></div>
+    </div>
+    <a class="dock-item" href="dashboard.html" data-nav>Dashboard</a>
+    <a class="dock-item" href="kw-planning.html" data-nav>KW Planung</a>
+    <a class="dock-item" href="cross-connects.html" data-nav>Cross Connects</a>
+    <a class="dock-item" href="patchpanels.html" data-nav>Patchpanels</a>
+    <a class="dock-item" href="historical-archive.html" data-nav>Leitungsarchiv</a>
+    <a class="dock-item" href="migration-audit.html" data-nav>Migration Audit</a>
+    <a class="dock-item" href="admin.html" data-nav data-admin-nav style="display:none;">Admin</a>
+  </nav>
+
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <!-- ════════════════════════════════════════════════════════
+       MODAL: Edit existing change (kept from before)
+       ════════════════════════════════════════════════════════ -->
+  <div id="editBackdrop" class="modal-bg">
+    <div class="modal-panel" style="max-width:960px;">
+      <div class="modal-header">
+        <h3>Massnahme bearbeiten</h3>
+        <div style="display:flex; gap:8px;">
+          <button id="btnEditCancel" class="btn">Schliessen</button>
+          <button id="btnEditSave" class="btn btn-primary" data-write>Speichern</button>
+        </div>
+      </div>
+      <div class="form-grid" style="margin-bottom:12px;">
+        <div>
+          <label class="small muted">Typ</label>
+          <input id="editType" class="input" readonly />
+        </div>
+        <div>
+          <label class="small muted">Ziel</label>
+          <input id="editTarget" class="input" readonly />
+        </div>
+        <div>
+          <label class="small muted">Status</label>
+          <select id="editStatus" class="select">
+            <option value="planned">Geplant</option>
+            <option value="in_progress">In Bearbeitung</option>
+          </select>
+        </div>
+      </div>
+      <div id="editDynamic" class="form-grid"></div>
+      <div style="margin-top:16px; text-align:right;">
+        <button class="btn btn-danger" id="btnDeleteGeneric" data-write>Massnahme l&ouml;schen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════
+       MODAL: NEW INSTALL  (text-input + auto-fill workflow)
+       ════════════════════════════════════════════════════════ -->
+  <div id="modalInstall" class="modal-bg">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h3 id="niModalTitle"><span class="type-pill install">+ Install</span> Neue Installation</h3>
+        <div style="display:flex; gap:8px;">
+          <button class="btn modal-close">Abbrechen</button>
+          <button class="btn btn-danger" id="btnDeleteInstall" style="display:none;" data-write>L&ouml;schen</button>
+          <button class="btn btn-primary" id="btnSaveInstall" data-write>Massnahme anlegen</button>
+        </div>
+      </div>
+
+      <div class="info-note">
+        RFRA Switch + Port eingeben &rarr; A-Seite wird automatisch aufgeloest.
+        Kunden-PP eingeben &rarr; Kunde + Raum werden automatisch erkannt.
+        BB IN wird kontextbezogen nach Kundenraum geladen &mdash; BB OUT folgt automatisch via Peer.
+      </div>
+
+      <!-- ── 1. Grunddaten ── -->
+      <div class="form-section">
+        <div class="form-section-title">Grunddaten</div>
+        <div class="form-row">
+          <div><label>Serial</label><input id="niSerial" class="input" placeholder="z.B. SN-12345 (optional)" /></div>
+          <div><label>Sales Order</label><input id="niSalesOrder" class="input" placeholder="Sales Order" /></div>
+          <div><label>Product ID</label><input id="niProductId" class="input" placeholder="Product ID" /></div>
+          <div><label>Logical Name</label><input id="niLogicalName" class="input" placeholder="Logical Name" /></div>
+        </div>
+      </div>
+
+      <!-- ── 2. A-Seite (RFRA Switch → auto-fill) ── -->
+      <div class="form-section">
+        <div class="form-section-title">A-Seite (RFRA Switch)</div>
+        <div class="form-row">
+          <div style="position:relative;">
+            <label>Switch Name *</label>
+            <input id="niSwitchName" class="input" placeholder="z.B. RFRA3211" autocomplete="off" />
+            <div id="niSwitchNameList" class="autocomplete-list"></div>
+          </div>
+          <div style="position:relative;">
+            <label>Switch Port *</label>
+            <input id="niSwitchPort" class="input" placeholder="z.B. ETH1/11" autocomplete="off" />
+            <div id="niSwitchPortList" class="autocomplete-list"></div>
+          </div>
+          <div><label>Raum (auto)</label><input id="niARoom" class="input" readonly tabindex="-1" /></div>
+        </div>
+        <div id="niASideResult" class="auto-fill-result" style="display:none;"></div>
+      </div>
+
+      <!-- ── 3. Z-Seite (Kunden-PP → auto-fill) ── -->
+      <div class="form-section">
+        <div class="form-section-title">Z-Seite (Kunde)</div>
+        <div class="form-row">
+          <div style="position:relative;">
+            <label>Kunden Patchpanel *</label>
+            <input id="niZPP" class="input" placeholder="z.B. PP:0607:1370187" autocomplete="off" />
+            <div id="niZPPList" class="autocomplete-list"></div>
+          </div>
+          <div><label>Kunde (auto)</label><input id="niZCustomer" class="input" readonly tabindex="-1" /></div>
+          <div><label>Raum (auto)</label><input id="niZRoom" class="input" readonly tabindex="-1" /></div>
+        </div>
+        <div id="niZPortLabel" class="pp-selected-label" style="display:none;"></div>
+        <div class="port-grid-wrap" id="niZPortGrid"></div>
+      </div>
+
+      <!-- ── 4. BB IN ── -->
+      <div class="form-section">
+        <div class="form-section-title">Backbone IN</div>
+        <div class="small muted" id="niBbInHint">Z-Seite eingeben, um passende BB IN PPs zu sehen.</div>
+        <div id="niBbInCards" class="bb-card-row"></div>
+        <div id="niBbInPortLabel" class="pp-selected-label" style="display:none;"></div>
+        <div class="port-grid-wrap" id="niBbInPortGrid"></div>
+      </div>
+
+      <!-- ── 5. BB OUT (auto-filled via peer) ── -->
+      <div class="form-section">
+        <div class="form-section-title">Backbone OUT <span class="small muted">(automatisch via Peer)</span></div>
+        <div id="niBbOutResult" class="auto-fill-result" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════
+       MODAL: DEINSTALL
+       ════════════════════════════════════════════════════════ -->
+  <div id="modalDeinstall" class="modal-bg">
+    <div class="modal-panel" style="max-width:820px;">
+      <div class="modal-header">
+        <h3><span class="type-pill deinstall">&minus; Deinstall</span> Deinstallation</h3>
+        <div style="display:flex; gap:8px;">
+          <button class="btn modal-close">Abbrechen</button>
+          <button class="btn btn-primary" id="btnSaveDeinstall" data-write disabled>Massnahme anlegen</button>
+        </div>
+      </div>
+
+      <div class="info-note">Serial-Nummer eingeben, um die bestehende Leitung zu laden. Dann bestaetigen.</div>
+
+      <div class="form-section">
+        <div class="form-section-title">Leitung suchen</div>
+        <div class="serial-lookup">
+          <input id="diSerial" class="input" placeholder="Serial-Nummer eingeben" />
+          <button class="btn" id="btnDiLookup">Suchen</button>
+        </div>
+        <div id="diPreview" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">Optionale Angaben</div>
+        <div class="form-row">
+          <div class="span-2"><label>Grund der Deinstallation</label><input id="diReason" class="input" placeholder="z.B. Kundenauftrag beendet" /></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════
+       MODAL: LINE MOVE
+       ════════════════════════════════════════════════════════ -->
+  <div id="modalLineMove" class="modal-bg">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h3 id="lmModalTitle"><span class="type-pill linemove">&harr; Line Move</span> Line Move</h3>
+        <div style="display:flex; gap:8px;">
+          <button class="btn modal-close">Abbrechen</button>
+          <button class="btn btn-danger" id="btnDeleteLineMove" style="display:none;" data-write>L&ouml;schen</button>
+          <button class="btn btn-primary" id="btnSaveLineMove" data-write disabled>Massnahme anlegen</button>
+        </div>
+      </div>
+
+      <div class="info-note">Serial eingeben &rarr; A-Seite wird automatisch angezeigt (nicht &auml;nderbar). Neue Z-Seite, BB IN &amp; BB OUT w&auml;hlen.</div>
+
+      <!-- ── 1. Leitung suchen ── -->
+      <div class="form-section">
+        <div class="form-section-title">Leitung suchen</div>
+        <div class="serial-lookup">
+          <input id="lmSerial" class="input" placeholder="Serial-Nummer eingeben" />
+          <button class="btn" id="btnLmLookup">Suchen</button>
+        </div>
+        <div id="lmPreview" style="margin-top:12px;"></div>
+      </div>
+
+      <!-- ── 2. A-Seite (readonly, auto-filled) ── -->
+      <div class="form-section" id="lmASideSection" style="display:none;">
+        <div class="form-section-title">A-Seite (bestehend &mdash; nicht &auml;nderbar)</div>
+        <div class="form-row">
+          <div><label>Switch Name</label><input id="lmASwitchName" class="input" readonly tabindex="-1" /></div>
+          <div><label>Switch Port</label><input id="lmASwitchPort" class="input" readonly tabindex="-1" /></div>
+          <div><label>Raum</label><input id="lmARoom" class="input" readonly tabindex="-1" /></div>
+        </div>
+        <div class="form-row" style="margin-top:6px;">
+          <div><label>A-Patchpanel</label><input id="lmAPP" class="input" readonly tabindex="-1" /></div>
+          <div><label>A-Port</label><input id="lmAPort" class="input" readonly tabindex="-1" /></div>
+          <div><label>Kunde</label><input id="lmACustomer" class="input" readonly tabindex="-1" /></div>
+        </div>
+      </div>
+
+      <!-- ── 3. Z-Seite (editable, same as install) ── -->
+      <div class="form-section" id="lmZSection" style="display:none;">
+        <div class="form-section-title">Neue Z-Seite (Kunde)</div>
+        <div class="form-row">
+          <div style="position:relative;">
+            <label>Kunden Patchpanel *</label>
+            <input id="lmZPP" class="input" placeholder="z.B. PP:0607:1370187" autocomplete="off" />
+            <div id="lmZPPList" class="autocomplete-list"></div>
+          </div>
+          <div><label>Kunde (auto)</label><input id="lmZCustomer" class="input" readonly tabindex="-1" /></div>
+          <div><label>Raum (auto)</label><input id="lmZRoom" class="input" readonly tabindex="-1" /></div>
+        </div>
+        <div id="lmZPortLabel" class="pp-selected-label" style="display:none;"></div>
+        <div class="port-grid-wrap" id="lmZPortGrid"></div>
+      </div>
+
+      <!-- ── 4. BB IN (editable, same as install) ── -->
+      <div class="form-section" id="lmBbInSection" style="display:none;">
+        <div class="form-section-title">Backbone IN</div>
+        <div class="small muted" id="lmBbInHint">Z-Seite eingeben, um passende BB IN PPs zu sehen.</div>
+        <div id="lmBbInCards" class="bb-card-row"></div>
+        <div id="lmBbInPortLabel" class="pp-selected-label" style="display:none;"></div>
+        <div class="port-grid-wrap" id="lmBbInPortGrid"></div>
+      </div>
+
+      <!-- ── 5. BB OUT (auto via peer) ── -->
+      <div class="form-section" id="lmBbOutSection" style="display:none;">
+        <div class="form-section-title">Backbone OUT <span class="small muted">(automatisch via Peer)</span></div>
+        <div id="lmBbOutResult" class="auto-fill-result" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════
+       MODAL: PATH MOVE
+       ════════════════════════════════════════════════════════ -->
+  <div id="modalPathMove" class="modal-bg">
+    <div class="modal-panel" style="max-width:900px;">
+      <div class="modal-header">
+        <h3><span class="type-pill pathmove">&#8644; Path Move</span> Path Move</h3>
+        <div style="display:flex; gap:8px;">
+          <button class="btn modal-close">Abbrechen</button>
+          <button class="btn btn-primary" id="btnSavePathMove" data-write disabled>Massnahme anlegen</button>
+        </div>
+      </div>
+
+      <div class="info-note">Zwei Leitungen per Serial suchen. Die BB-Pfade (IN/OUT, PP, Port) werden getauscht.</div>
+
+      <div class="form-section">
+        <div class="form-section-title">Leitung A</div>
+        <div class="serial-lookup">
+          <input id="pmSerialA" class="input" placeholder="Serial Leitung A" />
+          <button class="btn" id="btnPmLookupA">Suchen</button>
+        </div>
+        <div id="pmPreviewA" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="form-section">
+        <div class="form-section-title">Leitung B</div>
+        <div class="serial-lookup">
+          <input id="pmSerialB" class="input" placeholder="Serial Leitung B" />
+          <button class="btn" id="btnPmLookupB">Suchen</button>
+        </div>
+        <div id="pmPreviewB" style="margin-top:12px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="nav-auth.js"></script>
+  <script src="kw-planning.js"></script>
+</body>
+</html>
