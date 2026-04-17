@@ -10,7 +10,7 @@
 (function () {
   // API ist immer auf Port 8000. Egal ob die Seite via Live Server (5500),
   // file://, oder direkt über den FastAPI-Server (8000) geöffnet wird.
-  const DEFAULT_ORIGIN = "http://fr2lxcops01.corp.equinix.com:8082";
+  const DEFAULT_ORIGIN = "https://tocry.corp.equinix.com";
   const origin = (window.API_ORIGIN || DEFAULT_ORIGIN).replace(/\/$/, "");
 
   window.API_ORIGIN = origin;
