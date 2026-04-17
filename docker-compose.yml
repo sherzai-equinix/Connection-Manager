@@ -20,26 +20,13 @@ services:
       timeout: 5s
       retries: 5
 
-  restoredb:
-    image: postgres:17
-    container_name: cm_postgres_restore
-    environment:
-      POSTGRES_DB: restoredb
-      POSTGRES_USER: deviceapp
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    ports:
-      - "5444:5432"
-    networks:
-      - cm_net
-    restart: unless-stopped
-
   backend:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: cm_backend
     environment:
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-deviceapp}:${POSTGRES_PASSWORD}@restoredb:5432/devicedb_restore17
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-deviceapp}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-devicedb}
       JWT_SECRET: ${JWT_SECRET:?Setze JWT_SECRET in Portainer}
       JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS:-8}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
@@ -63,6 +50,8 @@ services:
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
       PGADMIN_LISTEN_ADDRESS: 0.0.0.0
       PGADMIN_LISTEN_PORT: 8080
+    volumes:
+      - cm_pgadmin_data:/var/lib/pgadmin
     ports:
       - "${PGADMIN_PORT:-5051}:8080"
     depends_on:
@@ -73,10 +62,10 @@ services:
 
 volumes:
   cm_pgdata:
-    name: cm_pgdata
+    name: connection_manager_postgres_data
   cm_pgadmin_data:
-    name: cm_pgadmin_data
-    
+    name: connection_manager_pgadmin_data
+
 networks:
   cm_net:
     name: cm_net
