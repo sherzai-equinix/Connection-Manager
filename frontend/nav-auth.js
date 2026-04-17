@@ -172,6 +172,8 @@
 }
 
   function logout() {
+    // Signal presence-offline before clearing tokens
+    _presenceLogout();
     const savedTheme = localStorage.getItem('theme');
     localStorage.removeItem('authToken');
     sessionStorage.removeItem('authToken');
@@ -180,6 +182,46 @@
     if (savedTheme) localStorage.setItem('theme', savedTheme);
     window.location.href = 'login.html';
   }
+
+  // ── Presence heartbeat (alle 30s) ──
+  var _heartbeatTimer = null;
+  function _presenceHeartbeat() {
+    var token = getToken(); if (!token) return;
+    var origin = String(window.API_ROOT || '').replace(/\/+$/, '');
+    if (!origin) return;
+    var page = currentPage();
+    var action = sessionStorage.getItem('presenceLastAction') || null;
+    try {
+      fetch(origin + '/presence/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ current_page: page, last_action: action })
+      }).catch(function(){});
+    } catch(e) {}
+  }
+  function _presenceLogout() {
+    var token = getToken(); if (!token) return;
+    var origin = String(window.API_ROOT || '').replace(/\/+$/, '');
+    if (!origin) return;
+    try {
+      fetch(origin + '/presence/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({}),
+        keepalive: true
+      }).catch(function(){});
+    } catch(e) {}
+  }
+  function startPresenceHeartbeat() {
+    if (_heartbeatTimer) return;
+    if (String(window.location.pathname).endsWith('login.html')) return;
+    _presenceHeartbeat();
+    _heartbeatTimer = setInterval(_presenceHeartbeat, 30000);
+  }
+  // Expose for other scripts to set last action context
+  window.setPresenceAction = function(action) {
+    if (action) sessionStorage.setItem('presenceLastAction', String(action).substring(0, 200));
+  };
 
   document.addEventListener('DOMContentLoaded', () => {
     // Protect pages (except login)
@@ -199,6 +241,7 @@
     setActiveNav();
     updateUserUI();
     applyTheme(localStorage.getItem('theme') || 'dark');
+    startPresenceHeartbeat();
 
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {

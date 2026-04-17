@@ -465,6 +465,61 @@
     body.light-mode .kw-text { color: #64748b; }
     body.light-mode #dashboardStatus { color: #64748b; }
     body.light-mode .skeleton-line { background: rgba(148,163,184,.15); }
+
+    /* ═══════════════════════════════════════════
+       PRESENCE WIDGET
+       ═══════════════════════════════════════════ */
+    .presence-widget { max-height: 280px; overflow-y: auto; }
+    .presence-widget::-webkit-scrollbar { width: 4px; }
+    .presence-widget::-webkit-scrollbar-thumb { background: rgba(255,255,255,.06); border-radius: 2px; }
+    .presence-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 20px; height: 20px; padding: 0 6px;
+      border-radius: 10px; font-size: .65rem; font-weight: 800;
+      background: rgba(102,187,106,.18); color: #66bb6a;
+      margin-left: 6px; transition: transform .2s;
+    }
+    .presence-badge.pop { animation: countPop .35s ease; }
+    .presence-user {
+      padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.04);
+    }
+    .presence-user:last-child { border-bottom: none; }
+    .presence-user-head {
+      display: flex; align-items: center; gap: 6px; font-size: .8rem;
+    }
+    .presence-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .dot-online { background: #66bb6a; box-shadow: 0 0 6px rgba(102,187,106,.5); }
+    .dot-idle { background: #ffb74d; box-shadow: 0 0 6px rgba(255,183,77,.4); }
+    .dot-offline { background: #78909c; }
+    .presence-name { font-weight: 700; text-transform: capitalize; }
+    .presence-since { margin-left: auto; font-size: .65rem; color: var(--muted,#999); white-space: nowrap; }
+    .presence-user-detail {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-top: 3px; padding-left: 14px;
+    }
+    .presence-page {
+      font-size: .68rem; padding: 2px 8px; border-radius: 6px;
+      background: rgba(59,130,246,.12); color: #60a5fa;
+    }
+    .presence-action {
+      font-size: .68rem; padding: 2px 8px; border-radius: 6px;
+      background: rgba(171,71,188,.12); color: #ce93d8;
+    }
+    .presence-user-ago {
+      font-size: .62rem; color: rgba(148,163,184,.45); padding-left: 14px; margin-top: 2px;
+    }
+    .presence-empty {
+      font-size: .78rem; color: rgba(148,163,184,.4); text-align: center; padding: 12px 0;
+    }
+    /* Light mode */
+    body.light-mode .presence-badge { background: rgba(102,187,106,.12); }
+    body.light-mode .presence-user { border-bottom-color: rgba(148,163,184,.1); }
+    body.light-mode .presence-since { color: #64748b; }
+    body.light-mode .presence-page { background: rgba(59,130,246,.08); color: #2563eb; }
+    body.light-mode .presence-action { background: rgba(171,71,188,.08); color: #9c27b0; }
+    body.light-mode .presence-user-ago { color: #94a3b8; }
+    body.light-mode .presence-empty { color: #94a3b8; }
   </style>
 </head>
 <body class="dashboard-page">
@@ -525,6 +580,13 @@
               <div class="future-widget-title">&#128200; Schnellzahlen</div>
               <div class="future-widget-body" id="futureQuickBody">Wird nach Laden angezeigt...</div>
             </div>
+            <!-- Live Presence Widget -->
+            <div class="future-widget presence-widget">
+              <div class="future-widget-title">&#128101; Aktive Benutzer <span class="presence-badge" id="presenceCount">0</span></div>
+              <div class="future-widget-body" id="presenceWidgetBody">
+                <div class="presence-empty">Laden...</div>
+              </div>
+            </div>
             <div class="future-placeholder">
               <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
@@ -556,6 +618,7 @@
   <div class="toast-wrap" id="toastWrap"></div>
   <script src="config.js"></script>
   <script src="nav-auth.js"></script>
+  <script src="presence.js"></script>
   <script src="dashboard.js"></script>
 </body>
 </html>

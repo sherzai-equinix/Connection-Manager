@@ -1,5 +1,5 @@
 # models.py - KOMPLETTE DATEI MIT ALLEN MODELS
-from sqlalchemy import Column, Integer, String, ForeignKey, UniqueConstraint, Index, DateTime, func, Date, Text, JSON
+from sqlalchemy import Column, Integer, String, ForeignKey, UniqueConstraint, Index, DateTime, func, Date, Text, JSON, Boolean
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, Any
@@ -161,6 +161,23 @@ Device.incoming_connections = relationship(
     back_populates="target_device",
     cascade="all, delete-orphan"
 )
+
+
+# ========================
+# Live Presence (016)
+# ========================
+
+class UserPresence(Base):
+    __tablename__ = "user_presence"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
+    username: Mapped[str] = mapped_column(String(100), nullable=False)
+    login_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    current_page: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    last_action: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
 
 # ========================

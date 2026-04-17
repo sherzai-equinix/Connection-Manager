@@ -35,6 +35,7 @@ from routers.kw_planning import router as kw_planning_router
 from routers.kw_flow import router as kw_flow_router
 from routers.patchpanels import router as patchpanels_router
 from routers.historical_lines import router as historical_lines_router
+from routers.presence import router as presence_router
 
 
 # ------------------------------------------------------------
@@ -119,6 +120,9 @@ app.include_router(kw_planning_router, dependencies=rbac_deps)
 app.include_router(kw_flow_router, dependencies=rbac_deps)
 app.include_router(admin_router, dependencies=rbac_deps)
 app.include_router(historical_lines_router, dependencies=rbac_deps)
+
+# ✅ Live Presence (016) – kann sauber entfernt werden
+app.include_router(presence_router)
 
 # ------------------------------------------------------------
 # Frontend statisch serven (vermeidet CORS-Probleme bei file://)
