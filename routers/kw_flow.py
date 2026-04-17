@@ -301,15 +301,10 @@ _BACKBONE_ROOMS_NORM = {
 
 def _line_select_sql(db: Session) -> str:
     serial_expr = "COALESCE(cc.serial_number, cc.serial)" if _has_column(db, "cross_connects", "serial_number") else "cc.serial"
-    return f"""
-        SELECT
-            cc.*,
-            {serial_expr} AS serial_effective,
-            a_pp.room AS a_room,
-            a_pp.rack_label AS a_rack,
-            z_pp.room AS z_room,
-            z_pp.rack_label AS z_rack,
-            z_pp.instance_id AS customer_patchpanel_instance_id,
+    has_customer_id = _has_column(db, "patchpanel_instances", "customer_id")
+
+    if has_customer_id:
+        customer_select = """
             cust.name AS customer_base_name,
             (
                 SELECT cl.room
@@ -321,6 +316,28 @@ def _line_select_sql(db: Session) -> str:
                 ORDER BY cl.id
                 LIMIT 1
             ) AS z_customer_room,
+        """
+        customer_join = """
+        LEFT JOIN public.customers cust
+               ON cust.id = z_pp.customer_id
+        """
+    else:
+        customer_select = """
+            NULL AS customer_base_name,
+            NULL AS z_customer_room,
+        """
+        customer_join = ""
+
+    return f"""
+        SELECT
+            cc.*,
+            {serial_expr} AS serial_effective,
+            a_pp.room AS a_room,
+            a_pp.rack_label AS a_rack,
+            z_pp.room AS z_room,
+            z_pp.rack_label AS z_rack,
+            z_pp.instance_id AS customer_patchpanel_instance_id,
+            {customer_select}
             (
                 SELECT cc2.system_name
                 FROM public.cross_connects cc2
@@ -336,8 +353,7 @@ def _line_select_sql(db: Session) -> str:
                OR a_pp.pp_number = cc.a_patchpanel_id
         LEFT JOIN public.patchpanel_instances z_pp
                ON z_pp.id = cc.customer_patchpanel_id
-        LEFT JOIN public.customers cust
-               ON cust.id = z_pp.customer_id
+        {customer_join}
     """
 
 
@@ -739,15 +755,21 @@ def list_archived_cross_connects(
             " OR COALESCE(a.reason, '') ILIKE :q)"
         )
     where_sql = ("WHERE " + " AND ".join(where)) if where else ""
+    has_customer_id = _has_column(db, "patchpanel_instances", "customer_id")
+    if has_customer_id:
+        cust_select = "cust.name AS customer_base_name"
+        cust_join = "LEFT JOIN public.customers cust ON cust.id = z_pp.customer_id"
+    else:
+        cust_select = "NULL AS customer_base_name"
+        cust_join = ""
     sql = f"""
         SELECT a.*,
                z_pp.instance_id AS customer_patchpanel_instance_id,
-               cust.name AS customer_base_name
+               {cust_select}
         FROM public.cross_connects_archive a
         LEFT JOIN public.patchpanel_instances z_pp
                ON z_pp.id = a.customer_patchpanel_id
-        LEFT JOIN public.customers cust
-               ON cust.id = z_pp.customer_id
+        {cust_join}
         {where_sql}
         ORDER BY a.deinstalled_at DESC, a.id DESC
         LIMIT :limit
