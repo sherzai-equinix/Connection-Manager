@@ -1,7 +1,7 @@
 services:
 
   db:
-    image: postgres:15
+    image: postgres:17
     container_name: cm_postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-devicedb}
