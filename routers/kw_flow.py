@@ -302,6 +302,7 @@ _BACKBONE_ROOMS_NORM = {
 def _line_select_sql(db: Session) -> str:
     serial_expr = "COALESCE(cc.serial_number, cc.serial)" if _has_column(db, "cross_connects", "serial_number") else "cc.serial"
     has_customer_id = _has_column(db, "patchpanel_instances", "customer_id")
+    has_rack_label = _has_column(db, "patchpanel_instances", "rack_label")
 
     if has_customer_id:
         customer_select = """
@@ -328,14 +329,17 @@ def _line_select_sql(db: Session) -> str:
         """
         customer_join = ""
 
+    rack_a = "a_pp.rack_label AS a_rack," if has_rack_label else "NULL AS a_rack,"
+    rack_z = "z_pp.rack_label AS z_rack," if has_rack_label else "NULL AS z_rack,"
+
     return f"""
         SELECT
             cc.*,
             {serial_expr} AS serial_effective,
             a_pp.room AS a_room,
-            a_pp.rack_label AS a_rack,
+            {rack_a}
             z_pp.room AS z_room,
-            z_pp.rack_label AS z_rack,
+            {rack_z}
             z_pp.instance_id AS customer_patchpanel_instance_id,
             {customer_select}
             (
@@ -1714,11 +1718,12 @@ def apply_kw_change_minimal(
             # Resolve z_pp instance_id and rack_code from DB if not provided
             z_rack_code = ""
             if z_pp_id:
-                pp_row = db.execute(text("SELECT instance_id, rack_label FROM patchpanel_instances WHERE id = :id"), {"id": int(z_pp_id)}).mappings().first()
+                _pp_cols = "instance_id, rack_label" if _has_column(db, "patchpanel_instances", "rack_label") else "instance_id"
+                pp_row = db.execute(text(f"SELECT {_pp_cols} FROM patchpanel_instances WHERE id = :id"), {"id": int(z_pp_id)}).mappings().first()
                 if pp_row:
                     if not z_pp_instance_id:
                         z_pp_instance_id = pp_row["instance_id"] or ""
-                    z_rack_code = pp_row["rack_label"] or ""
+                    z_rack_code = pp_row.get("rack_label") or ""
 
             has_serial_number = _has_column(db, "cross_connects", "serial_number")
 

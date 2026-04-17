@@ -82,6 +82,49 @@ def _normalize_ports_total(raw_total: Any, known_port_count: int, occupied_label
     return 96
 
 
+_PP_SCHEMA_ENSURED = False
+
+
+def _ensure_pp_schema(db: Session) -> None:
+    """Add missing columns to patchpanel_instances and ensure related tables exist."""
+    global _PP_SCHEMA_ENSURED
+    if _PP_SCHEMA_ENSURED:
+        return
+    db.execute(text("""
+        ALTER TABLE public.patchpanel_instances
+          ADD COLUMN IF NOT EXISTS rack_label   TEXT,
+          ADD COLUMN IF NOT EXISTS cage_no      TEXT,
+          ADD COLUMN IF NOT EXISTS room_code    TEXT,
+          ADD COLUMN IF NOT EXISTS customer_id  BIGINT,
+          ADD COLUMN IF NOT EXISTS side         TEXT;
+    """))
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS public.customers (
+            id   BIGSERIAL PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE
+        );
+    """))
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS public.customer_locations (
+            id          BIGSERIAL PRIMARY KEY,
+            customer_id BIGINT NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
+            room        TEXT,
+            cage_no     TEXT
+        );
+    """))
+    db.execute(text("CREATE INDEX IF NOT EXISTS ix_cl_customer ON public.customer_locations(customer_id)"))
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS public.customer_racks (
+            id          BIGSERIAL PRIMARY KEY,
+            location_id BIGINT NOT NULL REFERENCES public.customer_locations(id) ON DELETE CASCADE,
+            rack_label  TEXT
+        );
+    """))
+    db.execute(text("CREATE INDEX IF NOT EXISTS ix_cr_location ON public.customer_racks(location_id)"))
+    db.commit()
+    _PP_SCHEMA_ENSURED = True
+
+
 @router.get("/patchpanels")
 def list_patchpanels(
     room: str | None = Query(default=None),
@@ -89,6 +132,7 @@ def list_patchpanels(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    _ensure_pp_schema(db)
     rows = db.execute(
         text(
             """
@@ -235,6 +279,7 @@ def create_patchpanel(
     current_user=Depends(get_current_user),
 ):
     """Create a new Z-side (customer) patchpanel with full workflow."""
+    _ensure_pp_schema(db)
     customer_id = body.get("customer_id")
     customer_name = str(body.get("customer_name") or "").strip()
     room_val = str(body.get("room") or "").strip()
@@ -337,6 +382,7 @@ def list_customers(
     current_user=Depends(get_current_user),
 ):
     """List all customers with their locations and racks."""
+    _ensure_pp_schema(db)
     rows = db.execute(
         text(
             """
@@ -392,6 +438,7 @@ def list_patchpanel_rooms(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    _ensure_pp_schema(db)
     rows = db.execute(
         text(
             """
@@ -414,6 +461,7 @@ def patchpanel_ports(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    _ensure_pp_schema(db)
     panel = db.execute(
         text(
             """
