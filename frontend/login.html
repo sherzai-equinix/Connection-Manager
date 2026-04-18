@@ -480,13 +480,7 @@
                 </div>
             </form>
 
-            <!-- Demo Credentials -->
-            <div class="demo-credentials">
-                <h4><i class="fas fa-info-circle"></i> Demo Zugaenge</h4>
-                <p><strong>Admin:</strong> admin / admin123</p>
-                <p><strong>Techniker:</strong> tech / tech123</p>
-                <p><strong>Viewer:</strong> viewer / viewer123</p>
-            </div>
+
 
             <!-- Footer -->
             <div class="footer">
@@ -645,7 +639,7 @@
                 card.style.borderColor = 'rgba(74,222,128,.5)';
                 loading.innerHTML = '<i class="fas fa-check-circle" style="color:#4ade80;"></i> Erfolgreich!';
 
-                setTimeout(() => { window.location.href = 'cross-connects.html'; }, 600);
+                setTimeout(() => { window.location.href = 'dashboard.html'; }, 600);
 
             } catch (err) {
                 errorText.textContent = 'Falscher Benutzername oder Passwort';
@@ -665,7 +659,7 @@
 
             const hasToken = !!(localStorage.getItem('authToken') || sessionStorage.getItem('authToken'));
             if (hasToken) {
-                window.location.href = 'cross-connects.html';
+                window.location.href = 'dashboard.html';
             }
 
             if (localStorage.getItem('rememberLogin') === 'true') {
@@ -803,7 +797,7 @@
                     loginCard.style.animation = 'successFlash .6s ease';
                     loginCard.style.borderColor = 'rgba(74,222,128,.5)';
 
-                    setTimeout(function () { window.location.href = 'cross-connects.html'; }, 800);
+                    setTimeout(function () { window.location.href = 'dashboard.html'; }, 800);
                 } catch (err) {
                     errText.textContent = err.message;
                     errEl.style.display = 'block';

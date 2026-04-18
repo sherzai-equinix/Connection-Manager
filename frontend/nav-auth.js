@@ -30,7 +30,7 @@
   applyTheme(localStorage.getItem('theme') || 'dark');
   function currentPage() {
     const p = (window.location.pathname || '').split('/').pop();
-    return p && p.length ? p : 'cross-connects.html';
+    return p && p.length ? p : 'dashboard.html';
   }
 
   function getToken() {
@@ -234,7 +234,7 @@
 
     const role = localStorage.getItem('userRole') || sessionStorage.getItem('userRole') || 'viewer';
     if (!isAdmin(role) && currentPage() === 'admin.html') {
-      window.location.href = 'cross-connects.html';
+      window.location.href = 'dashboard.html';
       return;
     }
 
