@@ -346,6 +346,14 @@ function toggleExpand(id) {
   renderRows();
 }
 
+/* -------------------- CSV export -------------------- */
+
+function doExport() {
+  const status = $("statusFilter")?.value || "active";
+  let qs = `?status=${encodeURIComponent(status)}`;
+  window.open(`${API_CC}/export${qs}`, "_blank");
+}
+
 /* (no debounce – search pins only on Enter) */
 
 /* -------------------- init -------------------- */
@@ -366,6 +374,7 @@ document.addEventListener("DOMContentLoaded", () => {
   applyUrlParams();
 
   $("btnRefresh")?.addEventListener("click", loadList);
+  $("btnExport")?.addEventListener("click", doExport);
   $("statusFilter")?.addEventListener("change", () => {
     state.pinnedIds = [];
     loadList();

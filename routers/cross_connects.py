@@ -1,5 +1,8 @@
 # routers/cross_connects.py
+import csv
+import io
 from fastapi import APIRouter, Depends, HTTPException, Query, Path
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from datetime import date, timedelta
@@ -573,6 +576,90 @@ def list_cross_connects(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Cross-Connect list failed: {str(e)}")
+
+
+# ------------------------------------------------------------
+# CSV EXPORT
+# ------------------------------------------------------------
+@router.get("/export")
+def export_cross_connects_csv(
+    status: str = Query("active"),
+    q: str | None = Query(None),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Export cross-connects as CSV (same filters as /list)."""
+    allowed_status = {
+        "active", "pending_serial", "pending_install", "pending_deinstall",
+        "pending_move", "pending_path_move", "planned", "review",
+        "in_progress", "done", "troubleshoot", "deinstalled", "all",
+    }
+    if status not in allowed_status:
+        raise HTTPException(status_code=400, detail="Invalid status")
+
+    where = []
+    params: dict[str, Any] = {}
+
+    if q and q.strip():
+        params["q"] = f"%{q.strip()}%"
+        where.append("""(
+            COALESCE(serial,'') ILIKE :q OR
+            COALESCE(switch_name,'') ILIKE :q OR
+            COALESCE(switch_port,'') ILIKE :q OR
+            COALESCE(a_patchpanel_id,'') ILIKE :q OR
+            COALESCE(backbone_out_instance_id,'') ILIKE :q OR
+            COALESCE(backbone_in_instance_id,'') ILIKE :q OR
+            COALESCE(customer_port_label,'') ILIKE :q OR
+            COALESCE(system_name,'') ILIKE :q OR
+            COALESCE(rack_code,'') ILIKE :q
+        )""")
+
+    where_sql = "WHERE " + " AND ".join(where) if where else ""
+    rows = db.execute(
+        text(f"SELECT * FROM public.cross_connects {where_sql} ORDER BY created_at DESC"),
+        params,
+    ).mappings().all()
+
+    items = [_swap_backbone_fields(dict(r)) for r in rows]
+    overrides = _pending_status_overrides(db)
+    for item in items:
+        line_id = int(item.get("id") or 0)
+        if line_id and line_id in overrides and str(item.get("status") or "").lower() != "deinstalled":
+            item["status"] = overrides[line_id]
+
+    if status != "all":
+        items = [x for x in items if str(x.get("status") or "").lower() == status]
+
+    export_cols = [
+        "id", "serial", "product_id", "serial_number", "status",
+        "switch_name", "switch_port",
+        "a_patchpanel_id", "a_port_label",
+        "backbone_in_instance_id", "backbone_in_port_label",
+        "backbone_out_instance_id", "backbone_out_port_label",
+        "customer_patchpanel_id", "customer_port_label",
+        "system_name", "rack_code",
+        "tech_comment", "created_at", "updated_at",
+    ]
+
+    def generate():
+        output = io.StringIO()
+        writer = csv.writer(output, delimiter=";")
+        writer.writerow(export_cols)
+        yield output.getvalue()
+        output.seek(0)
+        output.truncate(0)
+
+        for item in items:
+            writer.writerow([str(item.get(c) or "") for c in export_cols])
+            yield output.getvalue()
+            output.seek(0)
+            output.truncate(0)
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=cross_connects_export.csv"},
+    )
 
 
 # ------------------------------------------------------------
