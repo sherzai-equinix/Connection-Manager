@@ -346,12 +346,32 @@ function toggleExpand(id) {
   renderRows();
 }
 
-/* -------------------- CSV export -------------------- */
+/* -------------------- Excel export -------------------- */
 
-function doExport() {
+async function doExport() {
   const status = $("statusFilter")?.value || "active";
-  let qs = `?status=${encodeURIComponent(status)}`;
-  window.open(`${API_CC}/export${qs}`, "_blank");
+  const qs = `?status=${encodeURIComponent(status)}`;
+  const exportUrl = String(window.API_CROSSCONNECTS || `${window.API_ROOT || ""}/cross-connects`).replace(/\/+$/, "");
+  try {
+    toast("Export wird erstellt...", "info");
+    const res = await fetch(`${exportUrl}/export${qs}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${res.status}`);
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get("content-disposition") || "";
+    const match = cd.match(/filename=([^;]+)/);
+    const filename = match ? match[1] : `Cross_Connects_Backup.xlsx`;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast("Export heruntergeladen", "success");
+  } catch (err) {
+    toast(`Export fehlgeschlagen: ${err.message}`, "error");
+  }
 }
 
 /* (no debounce – search pins only on Enter) */
