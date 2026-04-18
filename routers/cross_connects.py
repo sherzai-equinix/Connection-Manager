@@ -1,12 +1,12 @@
 # routers/cross_connects.py
-import csv
 import io
+from datetime import date, datetime, timedelta
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Path
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from datetime import date, timedelta
-from typing import Any
 
 from config import settings
 from database import get_db
@@ -579,16 +579,19 @@ def list_cross_connects(
 
 
 # ------------------------------------------------------------
-# CSV EXPORT
+# EXCEL EXPORT
 # ------------------------------------------------------------
 @router.get("/export")
-def export_cross_connects_csv(
+def export_cross_connects_xlsx(
     status: str = Query("active"),
     q: str | None = Query(None),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Export cross-connects as CSV (same filters as /list)."""
+    """Export cross-connects as styled Excel (same filters as /list)."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
     allowed_status = {
         "active", "pending_serial", "pending_install", "pending_deinstall",
         "pending_move", "pending_path_move", "planned", "review",
@@ -630,35 +633,141 @@ def export_cross_connects_csv(
     if status != "all":
         items = [x for x in items if str(x.get("status") or "").lower() == status]
 
-    export_cols = [
-        "id", "serial", "product_id", "serial_number", "status",
-        "switch_name", "switch_port",
-        "a_patchpanel_id", "a_port_label",
-        "backbone_in_instance_id", "backbone_in_port_label",
-        "backbone_out_instance_id", "backbone_out_port_label",
-        "customer_patchpanel_id", "customer_port_label",
-        "system_name", "rack_code",
-        "tech_comment", "created_at", "updated_at",
+    # ── Build workbook ──
+    wb = Workbook()
+
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill(start_color="2c3e50", end_color="2c3e50", fill_type="solid")
+    header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    thin_border = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"),
+    )
+    active_fill = PatternFill(start_color="d5f5e3", end_color="d5f5e3", fill_type="solid")
+    deinstalled_fill = PatternFill(start_color="fadbd8", end_color="fadbd8", fill_type="solid")
+    pending_fill = PatternFill(start_color="fef9c3", end_color="fef9c3", fill_type="solid")
+
+    def _safe(v):
+        if isinstance(v, datetime):
+            return v.replace(tzinfo=None) if v.tzinfo else v
+        return v
+
+    headers = [
+        "ID", "Serial", "Product ID", "Status",
+        "Switch Name", "Switch Port",
+        "A Patchpanel", "A Port",
+        "BB IN PP", "BB IN Port",
+        "BB OUT PP", "BB OUT Port",
+        "Z Patchpanel", "Z Port",
+        "Kunde", "Rack",
+        "Tech Kommentar",
+        "Erstellt", "Aktualisiert",
     ]
 
-    def generate():
-        output = io.StringIO()
-        writer = csv.writer(output, delimiter=";")
-        writer.writerow(export_cols)
-        yield output.getvalue()
-        output.seek(0)
-        output.truncate(0)
+    ws = wb.active
+    ws.title = "Cross Connects"
 
-        for item in items:
-            writer.writerow([str(item.get(c) or "") for c in export_cols])
-            yield output.getvalue()
-            output.seek(0)
-            output.truncate(0)
+    # Header row
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_align
+        cell.border = thin_border
 
+    # Data rows
+    for item in items:
+        ws.append([
+            _safe(item.get("id")),
+            item.get("serial") or "-",
+            item.get("product_id") or "-",
+            str(item.get("status") or "-"),
+            item.get("switch_name") or "-",
+            item.get("switch_port") or "-",
+            item.get("a_patchpanel_id") or "-",
+            item.get("a_port_label") or "-",
+            item.get("backbone_in_instance_id") or "-",
+            item.get("backbone_in_port_label") or "-",
+            item.get("backbone_out_instance_id") or "-",
+            item.get("backbone_out_port_label") or "-",
+            item.get("customer_patchpanel_id") or "-",
+            item.get("customer_port_label") or "-",
+            item.get("system_name") or "-",
+            item.get("rack_code") or "-",
+            item.get("tech_comment") or "-",
+            _safe(item.get("created_at")),
+            _safe(item.get("updated_at")),
+        ])
+
+    # Style data rows
+    status_col = headers.index("Status") + 1
+    for ri in range(2, ws.max_row + 1):
+        s_val = str(ws.cell(row=ri, column=status_col).value or "").lower()
+        fill = None
+        if s_val == "active":
+            fill = active_fill
+        elif s_val == "deinstalled":
+            fill = deinstalled_fill
+        elif "pending" in s_val:
+            fill = pending_fill
+        for cell in ws[ri]:
+            cell.border = thin_border
+            cell.alignment = Alignment(vertical="center")
+            if fill:
+                cell.fill = fill
+
+    # Auto-width
+    for col in ws.columns:
+        max_len = 0
+        col_letter = col[0].column_letter
+        for cell in col:
+            try:
+                max_len = max(max_len, len(str(cell.value or "")))
+            except Exception:
+                pass
+        ws.column_dimensions[col_letter].width = min(max(max_len + 2, 10), 40)
+
+    # ── Summary sheet ──
+    ws_sum = wb.create_sheet("Zusammenfassung", 0)
+    ws_sum.append(["Cross Connects Backup"])
+    ws_sum["A1"].font = Font(bold=True, size=16)
+    ws_sum.append([])
+    ws_sum.append(["Exportiert am", _safe(datetime.now().replace(microsecond=0))])
+    ws_sum.append(["Filter", status.capitalize()])
+    ws_sum.append([])
+    ws_sum.append(["Status", "Anzahl"])
+    for cell in ws_sum[6]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.border = thin_border
+
+    status_counts: dict[str, int] = {}
+    for item in items:
+        s = str(item.get("status") or "unknown").lower()
+        status_counts[s] = status_counts.get(s, 0) + 1
+    for s, cnt in sorted(status_counts.items()):
+        ws_sum.append([s.capitalize(), cnt])
+    ws_sum.append([])
+    ws_sum.append(["Gesamt", len(items)])
+    ws_sum[f"A{ws_sum.max_row}"].font = Font(bold=True)
+    ws_sum[f"B{ws_sum.max_row}"].font = Font(bold=True)
+
+    for ri in range(3, ws_sum.max_row + 1):
+        for cell in ws_sum[ri]:
+            cell.border = thin_border
+    ws_sum.column_dimensions["A"].width = 22
+    ws_sum.column_dimensions["B"].width = 20
+
+    bio = io.BytesIO()
+    wb.save(bio)
+    bio.seek(0)
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    filename = f"Cross_Connects_Backup_{today}.xlsx"
     return StreamingResponse(
-        generate(),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=cross_connects_export.csv"},
+        bio,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 
 
