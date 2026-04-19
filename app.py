@@ -14,8 +14,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 
 from config import settings
-from database import Base, engine
+from database import Base, engine, get_db
 from security import get_current_user, require_permissions_for_write
+from sqlalchemy.orm import Session
 
 # Router Imports
 from routers.auth import router as auth_router
@@ -125,11 +126,21 @@ app.include_router(historical_lines_router, dependencies=rbac_deps)
 app.include_router(presence_router)
 
 # ------------------------------------------------------------
-# Alias: /cross_connects/export → gleiche Logik wie /cross-connects/export
-# Das Frontend nutzt cross_connects (Unterstrich), der Router hat cross-connects (Bindestrich)
+# Alias: /cross_connects/export (Unterstrich-Version)
+# Das Frontend (cross-connects.js) nutzt API_CROSSCONNECTS_MIN = /cross_connects
+# Der Router registriert unter /cross-connects (Bindestrich).
+# Diese Route leitet den Aufruf direkt an die Export-Funktion weiter.
 # ------------------------------------------------------------
-from routers.cross_connects import export_cross_connects_xlsx as _cc_export
-app.get(f"{settings.api_prefix}/cross_connects/export", include_in_schema=False, dependencies=rbac_deps)(_cc_export)
+from routers.cross_connects import export_cross_connects_xlsx as _cc_export_fn
+
+@app.get(f"{settings.api_prefix}/cross_connects/export", include_in_schema=False)
+def cc_export_alias(
+    status: str = "active",
+    q: str = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    return _cc_export_fn(status=status, q=q, db=db, current_user=current_user)
 
 # ------------------------------------------------------------
 # Frontend statisch serven (vermeidet CORS-Probleme bei file://)
