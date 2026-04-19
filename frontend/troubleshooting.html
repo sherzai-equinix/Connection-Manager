@@ -115,6 +115,31 @@
       color:#93c5fd;margin-bottom:12px;
     }
 
+    /* ── Port Grid (cassette style, same as KW Planning) ── */
+    .cassette-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;align-items:start;}
+    .cassette{border:1px solid var(--border,#333);border-radius:10px;padding:10px;background:var(--surface-3,#31343a);}
+    .cassette h4{font-size:.78rem;font-weight:700;margin:0 0 6px;color:var(--text-muted,#999);}
+    .ports-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;}
+    .pbtn{border:1px solid rgba(148,163,184,.3);border-radius:8px;padding:6px 0;font-weight:700;cursor:pointer;font-size:11px;color:#e2e8f0;text-align:center;background:transparent;transition:.12s;}
+    .pbtn.free{background:rgba(16,185,129,.18);border-color:rgba(16,185,129,.45);}
+    .pbtn.free:hover{background:rgba(16,185,129,.35);transform:translateY(-1px);}
+    .pbtn.occ{background:rgba(239,68,68,.15);border-color:rgba(239,68,68,.4);cursor:not-allowed;opacity:.85;}
+    .pbtn.na{background:rgba(148,163,184,.08);border-color:rgba(148,163,184,.2);cursor:not-allowed;opacity:.7;}
+    .pbtn.sel{outline:3px solid rgba(59,130,246,.45);box-shadow:0 0 0 1px rgba(59,130,246,.25);}
+    .port-grid-wrap{margin-top:8px;max-height:340px;overflow-y:auto;padding-right:4px;}
+    .port-grid-wrap::-webkit-scrollbar{width:5px;}
+    .port-grid-wrap::-webkit-scrollbar-thumb{background:var(--border,#444);border-radius:4px;}
+    .pp-selected-label{font-size:.82rem;font-weight:700;margin-top:4px;color:#66bb6a;}
+    .bb-card-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+    .bb-card{padding:8px 16px;border-radius:8px;border:1px solid var(--border,#333);background:var(--surface-3,#31343a);cursor:pointer;font-size:.84rem;font-weight:600;transition:.12s;}
+    .bb-card:hover{border-color:var(--primary,#3b82f6);background:rgba(59,130,246,.1);}
+    .bb-card.selected{border-color:#10b981;background:rgba(16,185,129,.12);box-shadow:0 0 0 2px rgba(16,185,129,.3);}
+    .bb-card .bb-label{font-size:.72rem;color:var(--text-muted,#999);}
+    .auto-fill-result{padding:10px 14px;border-radius:8px;margin-top:8px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);font-size:.84rem;}
+    .auto-fill-result .af-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;}
+    .auto-fill-result .af-label{font-size:.72rem;color:var(--text-muted,#999);}
+    .auto-fill-result .af-val{font-weight:700;}
+
     /* Light mode overrides */
     body.light-mode .ts-type-btn{border-color:rgba(148,163,184,.3);color:#334155;}
     body.light-mode .ts-type-btn.active{border-color:#2563eb;background:rgba(37,99,235,.08);color:#2563eb;}
@@ -133,6 +158,11 @@
     body.light-mode .form-row .input{background:#fff;border-color:rgba(148,163,184,.3);color:#1e293b;}
     body.light-mode .form-row .input:disabled,body.light-mode .form-row .input[readonly]{background:#f1f5f9;}
     body.light-mode .info-note{background:rgba(59,130,246,.06);border-color:rgba(59,130,246,.18);color:#1e40af;}
+    body.light-mode .cassette{background:#f8fafc;border-color:rgba(148,163,184,.2);}
+    body.light-mode .pbtn{color:#334155;border-color:rgba(148,163,184,.3);}
+    body.light-mode .bb-card{background:#f8fafc;border-color:rgba(148,163,184,.2);}
+    body.light-mode .bb-card:hover{background:rgba(59,130,246,.06);border-color:rgba(59,130,246,.3);}
+    body.light-mode .auto-fill-result{background:rgba(16,185,129,.05);border-color:rgba(16,185,129,.18);}
   </style>
 </head>
 <body>
@@ -219,6 +249,7 @@
 
       <div class="info-note">
         Nur BB IN und BB OUT k&ouml;nnen bearbeitet werden. A-Seite und Z-Seite bleiben unver&auml;ndert.
+        BB IN Patchpanel w&auml;hlen &rarr; Port im Kassetten-Layout ausw&auml;hlen &rarr; BB OUT wird automatisch via Peer aufgel&ouml;st.
       </div>
 
       <!-- ── 1. Grunddaten (readonly) ── -->
@@ -247,25 +278,23 @@
         <div class="form-row">
           <div><label>Kunden Patchpanel</label><input id="edZsidePP" class="input" readonly tabindex="-1" /></div>
           <div><label>Z-Port</label><input id="edZsidePort" class="input" readonly tabindex="-1" /></div>
+          <div><label>Raum</label><input id="edZRoom" class="input" readonly tabindex="-1" /></div>
         </div>
       </div>
 
-      <!-- ── 4. Backbone IN (editable) ── -->
+      <!-- ── 4. Backbone IN (cassette port grid) ── -->
       <div class="form-section">
         <div class="form-section-title">Backbone IN</div>
-        <div class="form-row">
-          <div><label>BB IN Patchpanel *</label><input id="edBbInPP" class="input" placeholder="z.B. M5.13S1/RU3" /></div>
-          <div><label>BB IN Port *</label><input id="edBbInPort" class="input" placeholder="z.B. 1A1" /></div>
-        </div>
+        <div class="small muted" id="edBbInHint">BB IN Patchpanel-Karten werden geladen...</div>
+        <div id="edBbInCards" class="bb-card-row"></div>
+        <div id="edBbInPortLabel" class="pp-selected-label" style="display:none;"></div>
+        <div class="port-grid-wrap" id="edBbInPortGrid"></div>
       </div>
 
-      <!-- ── 5. Backbone OUT (editable) ── -->
+      <!-- ── 5. Backbone OUT (auto via peer) ── -->
       <div class="form-section">
-        <div class="form-section-title">Backbone OUT</div>
-        <div class="form-row">
-          <div><label>BB OUT Patchpanel *</label><input id="edBbOutPP" class="input" placeholder="z.B. M5.4S6/RU5" /></div>
-          <div><label>BB OUT Port *</label><input id="edBbOutPort" class="input" placeholder="z.B. 2B3" /></div>
-        </div>
+        <div class="form-section-title">Backbone OUT <span class="small muted">(automatisch via Peer)</span></div>
+        <div id="edBbOutResult" class="auto-fill-result" style="display:none;"></div>
       </div>
     </div>
   </div>
