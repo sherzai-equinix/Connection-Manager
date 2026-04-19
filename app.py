@@ -138,9 +138,8 @@ def cc_export_alias(
     status: str = "active",
     q: str = None,
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
 ):
-    return _cc_export_fn(status=status, q=q, db=db, current_user=current_user)
+    return _cc_export_fn(status=status, q=q, db=db)
 
 # ------------------------------------------------------------
 # Frontend statisch serven (vermeidet CORS-Probleme bei file://)
