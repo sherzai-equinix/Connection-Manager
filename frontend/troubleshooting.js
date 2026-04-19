@@ -18,7 +18,18 @@
   var currentType = 'ticket';
 
   // Accumulated search results: [{type, ticketNr, note, serial, data}]
+  // Persisted in sessionStorage so they survive page navigation
   var resultList = [];
+
+  function saveResultList() {
+    try { sessionStorage.setItem('ts_resultList', JSON.stringify(resultList)); } catch(e) {}
+  }
+  function loadResultList() {
+    try {
+      var raw = sessionStorage.getItem('ts_resultList');
+      if (raw) resultList = JSON.parse(raw);
+    } catch(e) { resultList = []; }
+  }
 
   // Edit state
   var editingEntry  = null;
@@ -122,6 +133,7 @@
         var exists = resultList.some(function (e) { return e.data.id === json.data.id; });
         if (exists) { toast('Diese Leitung ist bereits in der Liste.', 'warn'); return; }
         resultList.push({ type: type, ticketNr: ticketNr, note: note, serial: serial, data: json.data });
+        saveResultList();
         renderResults();
         toast('Leitung hinzugefuegt.', 'success');
       })
@@ -199,6 +211,7 @@
       btnRemove.addEventListener('click', function () {
         var i = resultList.indexOf(entry);
         if (i >= 0) resultList.splice(i, 1);
+        saveResultList();
         renderResults();
       });
       actionCell.appendChild(btnRemove);
@@ -384,15 +397,40 @@
   function loadBBPanels(customerRoom) {
     $('edBbInHint').textContent = 'BB IN PPs die Richtung Raum ' + customerRoom + ' gehen:';
 
+    // Current BB IN info from the cross-connect (to filter room + pre-select)
+    var curBbInId    = (editingEntry && editingEntry.data.backbone_in_instance_id) || '';
+    var curBbInPort  = (editingEntry && editingEntry.data.backbone_in_port_label) || '';
+
     apiJson(API_RACKVIEW + '/bb-panels-for-customer-room?customer_room=' + encodeURIComponent(customerRoom))
       .then(function (data) {
         var items = data.items || [];
+
+        // Filter to same backbone room as current BB IN panel (if exists)
+        if (curBbInId && items.length) {
+          var curPanel = items.find(function (p) { return p.bb_instance_id === curBbInId; });
+          if (curPanel) {
+            var curRoom = curPanel.bb_room;
+            items = items.filter(function (p) { return p.bb_room === curRoom; });
+          }
+        }
+
         edBbPanels = items;
         if (!items.length) {
           $('edBbInHint').textContent = 'Keine BB IN PPs gefunden fuer Raum ' + customerRoom + '.';
           return;
         }
         renderBBCards();
+
+        // Auto-select the current BB IN panel and port
+        if (curBbInId) {
+          var matchIdx = -1;
+          for (var i = 0; i < edBbPanels.length; i++) {
+            if (edBbPanels[i].bb_instance_id === curBbInId) { matchIdx = i; break; }
+          }
+          if (matchIdx >= 0) {
+            selectBBPanel(matchIdx, curBbInPort);
+          }
+        }
       })
       .catch(function (err) {
         $('edBbInHint').textContent = 'Fehler beim Laden: ' + err.message;
@@ -417,7 +455,7 @@
   }
 
   /* ── Select BB panel and load port grid ── */
-  function selectBBPanel(idx) {
+  function selectBBPanel(idx, preSelectPort) {
     edSelectedBbIdx = idx;
     edBbInPortLabel = '';
     edBbOutInstanceId = '';
@@ -449,7 +487,12 @@
           resolveBBOut(panel.bb_instance_id, label);
         }
 
-        renderPortGrid(gridEl, ports, pickBbPort, null);
+        // If a port was pre-selected (current BB IN port), auto-pick it
+        if (preSelectPort) {
+          pickBbPort(preSelectPort);
+        } else {
+          renderPortGrid(gridEl, ports, pickBbPort, null);
+        }
       })
       .catch(function (err) {
         $('edBbInPortGrid').innerHTML = '<div class="small" style="color:#ef5350;">' + esc(err.message) + '</div>';
@@ -544,6 +587,7 @@
         // Remove saved entry from result list
         var i = resultList.indexOf(editingEntry);
         if (i >= 0) resultList.splice(i, 1);
+        saveResultList();
         renderResults();
         editingEntry = null;
       })
@@ -590,6 +634,10 @@
     xhr.onerror = function () { toast('Report-Download fehlgeschlagen.', 'error'); };
     xhr.send();
   });
+
+  /* ── Init: restore persisted results ── */
+  loadResultList();
+  if (resultList.length) renderResults();
 
   /* ── Presence ── */
   if (window.setPresenceAction) window.setPresenceAction('Troubleshooting geoeffnet');
