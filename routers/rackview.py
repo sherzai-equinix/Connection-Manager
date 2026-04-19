@@ -704,6 +704,14 @@ def bb_panels_for_customer_room(customer_room: str = Query(...),
     # Also try adding M prefix
     if not cr.upper().startswith("M"):
         variants.add("M" + cr)
+    # Strip cage suffix (S1, S2, …) to get base room: "5.12S1" → "5.12"
+    for v in list(variants):
+        import re as _r
+        m_cage = _r.match(r"^(M?\d+\.\d+)S\d+$", v, _r.IGNORECASE)
+        if m_cage:
+            variants.add(m_cage.group(1))                    # e.g. "5.12"
+            if not m_cage.group(1).upper().startswith("M"):
+                variants.add("M" + m_cage.group(1))          # e.g. "M5.12"
     # Strip leading zeros in minor (5.04 → 5.4)
     for v in list(variants):
         import re as _r
