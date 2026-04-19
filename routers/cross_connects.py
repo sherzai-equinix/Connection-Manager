@@ -586,7 +586,6 @@ def export_cross_connects_xlsx(
     status: str = Query("active"),
     q: str | None = Query(None),
     db: Session = Depends(get_db),
-    current_user=Depends(get_current_user),
 ):
     """Export cross-connects as styled Excel (same filters as /list)."""
     from openpyxl import Workbook

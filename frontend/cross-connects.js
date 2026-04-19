@@ -350,33 +350,24 @@ function toggleExpand(id) {
 
 async function doExport() {
   const status = $("statusFilter")?.value || "active";
-  const qs = `?status=${encodeURIComponent(status)}`;
-  const url = `${API_CC}/export${qs}`;
-  console.log("[Export] calling:", url);
+  const url = `${API_CC}/export?status=${encodeURIComponent(status)}`;
   try {
-    toast("Export wird erstellt...", "info");
     const res = await fetch(url);
-    console.log("[Export] response status:", res.status);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `HTTP ${res.status}`);
     }
     const blob = await res.blob();
-    console.log("[Export] blob size:", blob.size, "type:", blob.type);
-    const cd = res.headers.get("content-disposition") || "";
-    const match = cd.match(/filename=([^;]+)/);
-    const filename = match ? match[1] : "Cross_Connects_Backup.xlsx";
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = filename;
+    a.download = `Cross_Connects_${status}_${new Date().toISOString().slice(0,10)}.xlsx`;
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
+    a.remove();
     URL.revokeObjectURL(a.href);
     toast("Export heruntergeladen", "success");
-  } catch (err) {
-    console.error("[Export] error:", err);
-    toast(`Export fehlgeschlagen: ${err.message}`, "error");
+  } catch (e) {
+    toast(`Export fehlgeschlagen: ${e.message}`, "error");
   }
 }
 
