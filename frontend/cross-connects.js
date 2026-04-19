@@ -351,25 +351,32 @@ function toggleExpand(id) {
 async function doExport() {
   const status = $("statusFilter")?.value || "active";
   const qs = `?status=${encodeURIComponent(status)}`;
-  const exportUrl = String(window.API_CROSSCONNECTS || `${window.API_ROOT || ""}/cross-connects`).replace(/\/+$/, "");
+  const base = String(window.API_CROSSCONNECTS || `${window.API_ROOT || ""}/cross-connects`).replace(/\/+$/, "");
+  const url = `${base}/export${qs}`;
+  console.log("[Export] calling:", url);
   try {
     toast("Export wird erstellt...", "info");
-    const res = await fetch(`${exportUrl}/export${qs}`);
+    const res = await fetch(url);
+    console.log("[Export] response status:", res.status);
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `HTTP ${res.status}`);
     }
     const blob = await res.blob();
+    console.log("[Export] blob size:", blob.size, "type:", blob.type);
     const cd = res.headers.get("content-disposition") || "";
     const match = cd.match(/filename=([^;]+)/);
-    const filename = match ? match[1] : `Cross_Connects_Backup.xlsx`;
+    const filename = match ? match[1] : "Cross_Connects_Backup.xlsx";
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = filename;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(a.href);
     toast("Export heruntergeladen", "success");
   } catch (err) {
+    console.error("[Export] error:", err);
     toast(`Export fehlgeschlagen: ${err.message}`, "error");
   }
 }
