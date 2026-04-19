@@ -599,175 +599,179 @@ def export_cross_connects_xlsx(
     if status not in allowed_status:
         raise HTTPException(status_code=400, detail="Invalid status")
 
-    where = []
-    params: dict[str, Any] = {}
+    try:
 
-    if q and q.strip():
-        params["q"] = f"%{q.strip()}%"
-        where.append("""(
-            COALESCE(serial,'') ILIKE :q OR
-            COALESCE(switch_name,'') ILIKE :q OR
-            COALESCE(switch_port,'') ILIKE :q OR
-            COALESCE(a_patchpanel_id,'') ILIKE :q OR
-            COALESCE(backbone_out_instance_id,'') ILIKE :q OR
-            COALESCE(backbone_in_instance_id,'') ILIKE :q OR
-            COALESCE(customer_port_label,'') ILIKE :q OR
-            COALESCE(system_name,'') ILIKE :q OR
-            COALESCE(rack_code,'') ILIKE :q
-        )""")
+        where = []
+        params: dict[str, Any] = {}
 
-    where_sql = "WHERE " + " AND ".join(where) if where else ""
-    rows = db.execute(
-        text(f"SELECT * FROM public.cross_connects {where_sql} ORDER BY created_at DESC"),
-        params,
-    ).mappings().all()
+        if q and q.strip():
+            params["q"] = f"%{q.strip()}%"
+            where.append("""(
+                COALESCE(serial,'') ILIKE :q OR
+                COALESCE(switch_name,'') ILIKE :q OR
+                COALESCE(switch_port,'') ILIKE :q OR
+                COALESCE(a_patchpanel_id,'') ILIKE :q OR
+                COALESCE(backbone_out_instance_id,'') ILIKE :q OR
+                COALESCE(backbone_in_instance_id,'') ILIKE :q OR
+                COALESCE(customer_port_label,'') ILIKE :q OR
+                COALESCE(system_name,'') ILIKE :q OR
+                COALESCE(rack_code,'') ILIKE :q
+            )""")
 
-    items = [_swap_backbone_fields(dict(r)) for r in rows]
-    overrides = _pending_status_overrides(db)
-    for item in items:
-        line_id = int(item.get("id") or 0)
-        if line_id and line_id in overrides and str(item.get("status") or "").lower() != "deinstalled":
-            item["status"] = overrides[line_id]
+        where_sql = "WHERE " + " AND ".join(where) if where else ""
+        rows = db.execute(
+            text(f"SELECT * FROM public.cross_connects {where_sql} ORDER BY created_at DESC"),
+            params,
+        ).mappings().all()
 
-    if status != "all":
-        items = [x for x in items if str(x.get("status") or "").lower() == status]
+        items = [_swap_backbone_fields(dict(r)) for r in rows]
+        overrides = _pending_status_overrides(db)
+        for item in items:
+            line_id = int(item.get("id") or 0)
+            if line_id and line_id in overrides and str(item.get("status") or "").lower() != "deinstalled":
+                item["status"] = overrides[line_id]
 
-    # ── Build workbook ──
-    wb = Workbook()
+        if status != "all":
+            items = [x for x in items if str(x.get("status") or "").lower() == status]
 
-    header_font = Font(bold=True, color="FFFFFF", size=11)
-    header_fill = PatternFill(start_color="2c3e50", end_color="2c3e50", fill_type="solid")
-    header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
-    thin_border = Border(
-        left=Side(style="thin"), right=Side(style="thin"),
-        top=Side(style="thin"), bottom=Side(style="thin"),
-    )
-    active_fill = PatternFill(start_color="d5f5e3", end_color="d5f5e3", fill_type="solid")
-    deinstalled_fill = PatternFill(start_color="fadbd8", end_color="fadbd8", fill_type="solid")
-    pending_fill = PatternFill(start_color="fef9c3", end_color="fef9c3", fill_type="solid")
+        # ── Build workbook ──
+        wb = Workbook()
 
-    def _safe(v):
-        if isinstance(v, datetime):
-            return v.replace(tzinfo=None) if v.tzinfo else v
-        return v
+        header_font = Font(bold=True, color="FFFFFF", size=11)
+        header_fill = PatternFill(start_color="2c3e50", end_color="2c3e50", fill_type="solid")
+        header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        thin_border = Border(
+            left=Side(style="thin"), right=Side(style="thin"),
+            top=Side(style="thin"), bottom=Side(style="thin"),
+        )
+        active_fill = PatternFill(start_color="d5f5e3", end_color="d5f5e3", fill_type="solid")
+        deinstalled_fill = PatternFill(start_color="fadbd8", end_color="fadbd8", fill_type="solid")
+        pending_fill = PatternFill(start_color="fef9c3", end_color="fef9c3", fill_type="solid")
 
-    headers = [
-        "ID", "Serial", "Product ID", "Status",
-        "Switch Name", "Switch Port",
-        "A Patchpanel", "A Port",
-        "BB IN PP", "BB IN Port",
-        "BB OUT PP", "BB OUT Port",
-        "Z Patchpanel", "Z Port",
-        "Kunde", "Rack",
-        "Tech Kommentar",
-        "Erstellt", "Aktualisiert",
-    ]
+        def _safe(v):
+            if isinstance(v, datetime):
+                return v.replace(tzinfo=None) if v.tzinfo else v
+            return v
 
-    ws = wb.active
-    ws.title = "Cross Connects"
+        headers = [
+            "ID", "Serial", "Product ID", "Status",
+            "Switch Name", "Switch Port",
+            "A Patchpanel", "A Port",
+            "BB IN PP", "BB IN Port",
+            "BB OUT PP", "BB OUT Port",
+            "Z Patchpanel", "Z Port",
+            "Kunde", "Rack",
+            "Tech Kommentar",
+            "Erstellt", "Aktualisiert",
+        ]
 
-    # Header row
-    ws.append(headers)
-    for cell in ws[1]:
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = header_align
-        cell.border = thin_border
+        ws = wb.active
+        ws.title = "Cross Connects"
 
-    # Data rows
-    for item in items:
-        ws.append([
-            _safe(item.get("id")),
-            item.get("serial") or "-",
-            item.get("product_id") or "-",
-            str(item.get("status") or "-"),
-            item.get("switch_name") or "-",
-            item.get("switch_port") or "-",
-            item.get("a_patchpanel_id") or "-",
-            item.get("a_port_label") or "-",
-            item.get("backbone_in_instance_id") or "-",
-            item.get("backbone_in_port_label") or "-",
-            item.get("backbone_out_instance_id") or "-",
-            item.get("backbone_out_port_label") or "-",
-            item.get("customer_patchpanel_id") or "-",
-            item.get("customer_port_label") or "-",
-            item.get("system_name") or "-",
-            item.get("rack_code") or "-",
-            item.get("tech_comment") or "-",
-            _safe(item.get("created_at")),
-            _safe(item.get("updated_at")),
-        ])
-
-    # Style data rows
-    status_col = headers.index("Status") + 1
-    for ri in range(2, ws.max_row + 1):
-        s_val = str(ws.cell(row=ri, column=status_col).value or "").lower()
-        fill = None
-        if s_val == "active":
-            fill = active_fill
-        elif s_val == "deinstalled":
-            fill = deinstalled_fill
-        elif "pending" in s_val:
-            fill = pending_fill
-        for cell in ws[ri]:
+        # Header row
+        ws.append(headers)
+        for cell in ws[1]:
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
             cell.border = thin_border
-            cell.alignment = Alignment(vertical="center")
-            if fill:
-                cell.fill = fill
 
-    # Auto-width
-    for col in ws.columns:
-        max_len = 0
-        col_letter = col[0].column_letter
-        for cell in col:
-            try:
-                max_len = max(max_len, len(str(cell.value or "")))
-            except Exception:
-                pass
-        ws.column_dimensions[col_letter].width = min(max(max_len + 2, 10), 40)
+        # Data rows
+        for item in items:
+            ws.append([
+                _safe(item.get("id")),
+                item.get("serial") or "-",
+                item.get("product_id") or "-",
+                str(item.get("status") or "-"),
+                item.get("switch_name") or "-",
+                item.get("switch_port") or "-",
+                item.get("a_patchpanel_id") or "-",
+                item.get("a_port_label") or "-",
+                item.get("backbone_in_instance_id") or "-",
+                item.get("backbone_in_port_label") or "-",
+                item.get("backbone_out_instance_id") or "-",
+                item.get("backbone_out_port_label") or "-",
+                item.get("customer_patchpanel_id") or "-",
+                item.get("customer_port_label") or "-",
+                item.get("system_name") or "-",
+                item.get("rack_code") or "-",
+                item.get("tech_comment") or "-",
+                _safe(item.get("created_at")),
+                _safe(item.get("updated_at")),
+            ])
 
-    # ── Summary sheet ──
-    ws_sum = wb.create_sheet("Zusammenfassung", 0)
-    ws_sum.append(["Cross Connects Backup"])
-    ws_sum["A1"].font = Font(bold=True, size=16)
-    ws_sum.append([])
-    ws_sum.append(["Exportiert am", _safe(datetime.now().replace(microsecond=0))])
-    ws_sum.append(["Filter", status.capitalize()])
-    ws_sum.append([])
-    ws_sum.append(["Status", "Anzahl"])
-    for cell in ws_sum[6]:
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.border = thin_border
+        # Style data rows
+        status_col = headers.index("Status") + 1
+        for ri in range(2, ws.max_row + 1):
+            s_val = str(ws.cell(row=ri, column=status_col).value or "").lower()
+            fill = None
+            if s_val == "active":
+                fill = active_fill
+            elif s_val == "deinstalled":
+                fill = deinstalled_fill
+            elif "pending" in s_val:
+                fill = pending_fill
+            for cell in ws[ri]:
+                cell.border = thin_border
+                cell.alignment = Alignment(vertical="center")
+                if fill:
+                    cell.fill = fill
 
-    status_counts: dict[str, int] = {}
-    for item in items:
-        s = str(item.get("status") or "unknown").lower()
-        status_counts[s] = status_counts.get(s, 0) + 1
-    for s, cnt in sorted(status_counts.items()):
-        ws_sum.append([s.capitalize(), cnt])
-    ws_sum.append([])
-    ws_sum.append(["Gesamt", len(items)])
-    ws_sum[f"A{ws_sum.max_row}"].font = Font(bold=True)
-    ws_sum[f"B{ws_sum.max_row}"].font = Font(bold=True)
+        # Auto-width
+        for col in ws.columns:
+            max_len = 0
+            col_letter = col[0].column_letter
+            for cell in col:
+                try:
+                    max_len = max(max_len, len(str(cell.value or "")))
+                except Exception:
+                    pass
+            ws.column_dimensions[col_letter].width = min(max(max_len + 2, 10), 40)
 
-    for ri in range(3, ws_sum.max_row + 1):
-        for cell in ws_sum[ri]:
+        # ── Summary sheet ──
+        ws_sum = wb.create_sheet("Zusammenfassung", 0)
+        ws_sum.append(["Cross Connects Backup"])
+        ws_sum["A1"].font = Font(bold=True, size=16)
+        ws_sum.append([])
+        ws_sum.append(["Exportiert am", _safe(datetime.now().replace(microsecond=0))])
+        ws_sum.append(["Filter", status.capitalize()])
+        ws_sum.append([])
+        ws_sum.append(["Status", "Anzahl"])
+        for cell in ws_sum[6]:
+            cell.font = header_font
+            cell.fill = header_fill
             cell.border = thin_border
-    ws_sum.column_dimensions["A"].width = 22
-    ws_sum.column_dimensions["B"].width = 20
 
-    bio = io.BytesIO()
-    wb.save(bio)
-    bio.seek(0)
+        status_counts: dict[str, int] = {}
+        for item in items:
+            s = str(item.get("status") or "unknown").lower()
+            status_counts[s] = status_counts.get(s, 0) + 1
+        for s, cnt in sorted(status_counts.items()):
+            ws_sum.append([s.capitalize(), cnt])
+        ws_sum.append([])
+        ws_sum.append(["Gesamt", len(items)])
+        ws_sum[f"A{ws_sum.max_row}"].font = Font(bold=True)
+        ws_sum[f"B{ws_sum.max_row}"].font = Font(bold=True)
 
-    today = datetime.now().strftime("%Y-%m-%d")
-    filename = f"Cross_Connects_Backup_{today}.xlsx"
-    return StreamingResponse(
-        bio,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f"attachment; filename={filename}"},
-    )
+        for ri in range(3, ws_sum.max_row + 1):
+            for cell in ws_sum[ri]:
+                cell.border = thin_border
+        ws_sum.column_dimensions["A"].width = 22
+        ws_sum.column_dimensions["B"].width = 20
+
+        bio = io.BytesIO()
+        wb.save(bio)
+        bio.seek(0)
+
+        today = datetime.now().strftime("%Y-%m-%d")
+        filename = f"Cross_Connects_Backup_{today}.xlsx"
+        return StreamingResponse(
+            bio,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Export failed: {e}")
 
 
 # ------------------------------------------------------------
