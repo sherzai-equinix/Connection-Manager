@@ -694,34 +694,55 @@ def bb_panels_for_customer_room(customer_room: str = Query(...),
     If bb_instance_id is given, only return panels in the same backbone room.
     """
     cr = customer_room.strip()
-    # Build room variants: e.g. "M4.5" → {"M4.5", "4.5"}, "5.04S6" → {"5.04S6", "5.4S6"}
-    variants = {cr}
+    import re as _re
+
+    # ── Extract base room number (e.g. "5.12" from "5.12S1", "M5.12", "M5.12S1") ──
+    base_room = cr
     # Strip leading M
+    if base_room.upper().startswith("M") and len(base_room) > 1:
+        base_room = base_room[1:]
+    # Strip cage suffix S<n>
+    cage_m = _re.match(r"^(\d+\.\d+)S\d+$", base_room, _re.IGNORECASE)
+    if cage_m:
+        base_room = cage_m.group(1)
+    # Strip leading zeros: 5.04 → 5.4
+    zero_m = _re.match(r"^(\d+)\.0*(\d+)$", base_room)
+    if zero_m:
+        base_room = f"{zero_m.group(1)}.{zero_m.group(2)}"
+
+    # Build room variants: exact + LIKE patterns for broad matching
+    variants = {cr}
     if cr.upper().startswith("M") and len(cr) > 1 and cr[1:2].isdigit():
         variants.add(cr[1:])
-    # Remove spaces
     variants.add(cr.replace(" ", ""))
     if cr.upper().startswith("M"):
         variants.add(cr[1:].replace(" ", ""))
-    # Also try adding M prefix
     if not cr.upper().startswith("M"):
         variants.add("M" + cr)
-    # Strip cage suffix (S1, S2, …) to get base room: "5.12S1" → "5.12"
+    # Add base room + M-prefixed base room
+    variants.add(base_room)
+    variants.add("M" + base_room)
+    # Add base room with cage suffix variants (S1-S9)
     for v in list(variants):
-        import re as _r
-        m_cage = _r.match(r"^(M?\d+\.\d+)S\d+$", v, _r.IGNORECASE)
+        m_cage = _re.match(r"^(M?\d+\.\d+)S\d+$", v, _re.IGNORECASE)
         if m_cage:
-            variants.add(m_cage.group(1))                    # e.g. "5.12"
+            variants.add(m_cage.group(1))
             if not m_cage.group(1).upper().startswith("M"):
-                variants.add("M" + m_cage.group(1))          # e.g. "M5.12"
+                variants.add("M" + m_cage.group(1))
     # Strip leading zeros in minor (5.04 → 5.4)
     for v in list(variants):
-        import re as _r
-        m = _r.match(r"^(M?)(\d+)\.0*(\d+)(.*)", v)
+        m = _re.match(r"^(M?)(\d+)\.0*(\d+)(.*)", v)
         if m:
             variants.add(f"{m.group(1)}{m.group(2)}.{m.group(3)}{m.group(4)}")
     match_rooms = list(variants)
     params = {f"r{i}": r for i, r in enumerate(match_rooms)}
+
+    # Also build LIKE patterns for the base room to catch any format in DB
+    like_patterns = [f"%{base_room}%"]
+
+    like_clauses = " OR ".join(f"peer.room LIKE :like{i}" for i in range(len(like_patterns)))
+    for i, lp in enumerate(like_patterns):
+        params[f"like{i}"] = lp
 
     # Determine backbone room filter
     bb_room_filter = "('5.4S6','5.13S1')"
@@ -733,7 +754,7 @@ def bb_panels_for_customer_room(customer_room: str = Query(...),
             bb_room_filter = "(:bb_room)"
             params["bb_room"] = bb_row.room
 
-    # Use IN clause with explicit bind params
+    # Use IN clause + LIKE fallback for broad room matching
     placeholders = ", ".join(f":r{i}" for i in range(len(match_rooms)))
     rows = db.execute(text(f"""
         SELECT DISTINCT
@@ -749,7 +770,7 @@ def bb_panels_for_customer_room(customer_room: str = Query(...),
         JOIN patchpanel_ports p   ON p.patchpanel_id = i.id
         JOIN patchpanel_instances peer ON peer.instance_id = p.peer_instance_id
         WHERE i.room IN {bb_room_filter}
-          AND peer.room IN ({placeholders})
+          AND (peer.room IN ({placeholders}) OR {like_clauses})
         ORDER BY i.room, i.instance_id
     """), params).mappings().fetchall()
     return {

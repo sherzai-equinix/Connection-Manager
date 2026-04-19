@@ -98,6 +98,10 @@
         note: entry.note || '',
         cc_data: entry.data
       })
+    }).catch(function (err) {
+      console.warn('Workline save failed:', err);
+      // Fallback: keep in localStorage
+      saveFallbackList();
     });
   }
 
@@ -105,25 +109,46 @@
     return fetch(API_TS + '/worklines/' + ccId, {
       method: 'DELETE',
       headers: authHeaders()
-    });
+    }).then(function () { saveFallbackList(); })
+      .catch(function () { saveFallbackList(); });
   }
 
   function dbLoadWorklines() {
     return apiJson(API_TS + '/worklines', { headers: authHeaders() })
       .then(function (res) {
         var items = res.items || [];
-        resultList = items.map(function (row) {
-          return {
-            type: row.troubleshoot_type || 'normal',
-            ticketNr: row.ticket_number || '',
-            note: row.note || '',
-            serial: row.serial_number || '',
-            data: row.cc_data || {}
-          };
-        });
+        if (items.length) {
+          resultList = items.map(function (row) {
+            return {
+              type: row.troubleshoot_type || 'normal',
+              ticketNr: row.ticket_number || '',
+              note: row.note || '',
+              serial: row.serial_number || '',
+              data: row.cc_data || {}
+            };
+          });
+        } else {
+          // Fallback: try localStorage
+          loadFallbackList();
+        }
         renderResults();
       })
-      .catch(function () { /* silently fail on first load */ });
+      .catch(function () {
+        // API failed — try localStorage fallback
+        loadFallbackList();
+        renderResults();
+      });
+  }
+
+  // localStorage fallback for when API is unreachable
+  function saveFallbackList() {
+    try { localStorage.setItem('ts_resultList', JSON.stringify(resultList)); } catch(e) {}
+  }
+  function loadFallbackList() {
+    try {
+      var raw = localStorage.getItem('ts_resultList');
+      if (raw) resultList = JSON.parse(raw);
+    } catch(e) { resultList = []; }
   }
 
   /* ══════════════════════════════════════════
@@ -165,6 +190,7 @@
         if (exists) { toast('Diese Leitung ist bereits in der Liste.', 'warn'); return; }
         var entry = { type: type, ticketNr: ticketNr, note: note, serial: serial, data: json.data };
         resultList.push(entry);
+        saveFallbackList();
         renderResults();
         // Persist in DB
         dbSaveWorkline(entry).catch(function () {});
@@ -245,6 +271,7 @@
         var ccId = entry.data.id;
         var i = resultList.indexOf(entry);
         if (i >= 0) resultList.splice(i, 1);
+        saveFallbackList();
         renderResults();
         dbRemoveWorkline(ccId).catch(function () {});
       });
@@ -613,6 +640,7 @@
         var ccId = editingEntry.data.id;
         var i = resultList.indexOf(editingEntry);
         if (i >= 0) resultList.splice(i, 1);
+        saveFallbackList();
         renderResults();
         dbRemoveWorkline(ccId).catch(function () {});
         editingEntry = null;
