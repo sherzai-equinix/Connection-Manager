@@ -46,41 +46,76 @@
     }
     .btn-edit-line:hover{background:rgba(59,130,246,.2);border-color:rgba(59,130,246,.4);}
 
-    /* ── Edit overlay / modal ── */
-    .ts-edit-overlay{
-      display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:1000;
-      background:rgba(0,0,0,.55);justify-content:center;align-items:flex-start;
-      padding:40px 16px;overflow-y:auto;
+    /* ── Result section headers ── */
+    .ts-result-section{margin-bottom:18px;}
+    .ts-result-heading{
+      display:flex;align-items:center;gap:10px;margin-bottom:8px;
+      padding-bottom:6px;border-bottom:1px solid var(--border,#333);
     }
-    .ts-edit-overlay.open{display:flex;}
-    .ts-edit-panel{
-      background:var(--card-bg,#1a1a2e);border:1px solid var(--border,#333);
-      border-radius:12px;width:100%;max-width:720px;padding:28px 32px;
+    .ts-result-heading .type-pill{
+      display:inline-block;padding:3px 12px;border-radius:5px;
+      font-size:.78rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;
     }
-    .ts-edit-title{font-size:1.15rem;font-weight:700;margin-bottom:18px;}
+    .type-pill.ticket{background:#0d3e5c;color:#4fc3f7;}
+    .type-pill.normal{background:#3a1a5c;color:#ce93d8;}
+    .ts-result-heading .heading-text{font-size:.95rem;font-weight:700;}
+    .ts-result-meta{font-size:.78rem;color:var(--muted,#999);margin-bottom:6px;}
+    .btn-remove-line{
+      background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);
+      color:#f87171;padding:4px 10px;border-radius:5px;cursor:pointer;
+      font-size:.75rem;font-weight:600;transition:.15s;margin-left:6px;
+    }
+    .btn-remove-line:hover{background:rgba(239,68,68,.18);border-color:rgba(239,68,68,.35);}
 
-    .ts-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;}
-    .ts-edit-field{display:flex;flex-direction:column;gap:4px;}
-    .ts-edit-field label{font-size:.75rem;color:var(--muted,#999);text-transform:uppercase;letter-spacing:.04em;}
-    .ts-edit-field input,
-    .ts-edit-field select{
-      padding:8px 12px;border-radius:6px;border:1px solid var(--border,#333);
+    /* ══════════════════════════════════════════
+       MODAL: KW-Planning style (Neue Installation)
+       ══════════════════════════════════════════ */
+    .modal-bg{
+      display:none;position:fixed;inset:0;
+      background:rgba(0,0,0,0.62);z-index:1000;overflow-y:auto;
+    }
+    .modal-bg.show{display:block;}
+    .modal-panel{
+      max-width:1060px;margin:24px auto;border-radius:14px;
+      background:var(--card-bg,#181a1e);padding:20px 24px 24px;
+      border:1px solid var(--border,#333);margin-bottom:40px;
+    }
+    .modal-header{
+      display:flex;align-items:center;justify-content:space-between;
+      gap:10px;margin-bottom:16px;
+    }
+    .modal-header h3{margin:0;font-size:1.1rem;}
+    .form-section{
+      margin-bottom:16px;padding:14px 16px;border-radius:10px;
+      background:var(--surface-2,#23262b);border:1px solid var(--border,#333);
+    }
+    .form-section-title{
+      font-size:.85rem;font-weight:700;margin-bottom:10px;
+      color:var(--text-muted,#999);text-transform:uppercase;letter-spacing:.04em;
+    }
+    .form-row{
+      display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));
+      gap:10px;margin-bottom:8px;
+    }
+    .form-row label{
+      display:block;font-size:.78rem;font-weight:600;
+      color:var(--text-muted,#999);margin-bottom:3px;
+    }
+    .form-row .input{
+      width:100%;padding:8px 12px;border-radius:6px;
+      border:1px solid var(--border,#333);
       background:var(--card-bg,#1e1e2e);color:var(--text,#e0e0e0);font-size:.9rem;
     }
-    .ts-edit-field input:disabled,
-    .ts-edit-field select:disabled{
+    .form-row .input:disabled,.form-row .input[readonly]{
       opacity:.5;cursor:not-allowed;background:rgba(255,255,255,.03);
     }
-
-    .ts-edit-actions{display:flex;gap:12px;margin-top:20px;justify-content:flex-end;}
-
-    .ts-section-label{
-      font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
-      color:var(--muted,#999);grid-column:1/-1;margin-top:8px;padding-bottom:4px;
-      border-bottom:1px solid rgba(255,255,255,.06);
+    .info-note{
+      padding:8px 14px;border-radius:8px;font-size:.82rem;
+      background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);
+      color:#93c5fd;margin-bottom:12px;
     }
 
-    /* Light mode */
+    /* Light mode overrides */
     body.light-mode .ts-type-btn{border-color:rgba(148,163,184,.3);color:#334155;}
     body.light-mode .ts-type-btn.active{border-color:#2563eb;background:rgba(37,99,235,.08);color:#2563eb;}
     body.light-mode .ts-input-row .field input,
@@ -89,10 +124,15 @@
     body.light-mode .ts-result-table td{border-bottom-color:rgba(148,163,184,.08);}
     body.light-mode .cell-sub{color:#64748b;}
     body.light-mode .btn-edit-line{background:rgba(37,99,235,.06);border-color:rgba(37,99,235,.2);color:#2563eb;}
-    body.light-mode .ts-edit-panel{background:#fff;border-color:rgba(148,163,184,.2);}
-    body.light-mode .ts-edit-field input,
-    body.light-mode .ts-edit-field select{background:#fff;border-color:rgba(148,163,184,.3);color:#1e293b;}
-    body.light-mode .ts-section-label{color:#64748b;border-bottom-color:rgba(148,163,184,.12);}
+    body.light-mode .type-pill.ticket{background:#dbeafe;color:#1d4ed8;}
+    body.light-mode .type-pill.normal{background:#f3e8ff;color:#7c3aed;}
+    body.light-mode .ts-result-heading{border-bottom-color:rgba(148,163,184,.2);}
+    body.light-mode .btn-remove-line{background:rgba(239,68,68,.05);color:#dc2626;border-color:rgba(239,68,68,.15);}
+    body.light-mode .modal-panel{background:#ffffff;border-color:rgba(148,163,184,.22);}
+    body.light-mode .form-section{background:#f8fafc;border-color:rgba(148,163,184,.2);}
+    body.light-mode .form-row .input{background:#fff;border-color:rgba(148,163,184,.3);color:#1e293b;}
+    body.light-mode .form-row .input:disabled,body.light-mode .form-row .input[readonly]{background:#f1f5f9;}
+    body.light-mode .info-note{background:rgba(59,130,246,.06);border-color:rgba(59,130,246,.18);color:#1e40af;}
   </style>
 </head>
 <body>
@@ -157,86 +197,75 @@
           </div>
         </div>
 
-        <!-- Result area -->
-        <div class="card" id="resultCard" style="display:none;">
-          <h2 class="card-title" style="font-size:1rem;margin-bottom:8px;">Gefundene Leitung</h2>
-          <div class="table-scroll">
-            <table class="ts-result-table" id="resultTable">
-              <thead>
-                <tr>
-                  <th>Serial</th>
-                  <th>Kunde</th>
-                  <th>A-Seite</th>
-                  <th>Z-Seite</th>
-                  <th>BB IN</th>
-                  <th>BB OUT</th>
-                  <th>Status</th>
-                  <th style="width:80px;"></th>
-                </tr>
-              </thead>
-              <tbody id="resultBody"></tbody>
-            </table>
-          </div>
-        </div>
+        <!-- Result area (accumulated lines) -->
+        <div id="resultArea"></div>
 
       </section>
     </div>
   </main>
 
-  <!-- Edit overlay -->
-  <div class="ts-edit-overlay" id="editOverlay">
-    <div class="ts-edit-panel">
-      <div class="ts-edit-title">Backbone-Weg bearbeiten</div>
-      <div class="ts-edit-grid">
-        <!-- Read-only section -->
-        <div class="ts-section-label">Leitungsdaten (nicht bearbeitbar)</div>
-        <div class="ts-edit-field">
-          <label>Serial</label>
-          <input type="text" id="edSerial" disabled />
-        </div>
-        <div class="ts-edit-field">
-          <label>Switch (RFRA)</label>
-          <input type="text" id="edSwitch" disabled />
-        </div>
-        <div class="ts-edit-field">
-          <label>A-Seite PP</label>
-          <input type="text" id="edAsidePP" disabled />
-        </div>
-        <div class="ts-edit-field">
-          <label>A-Seite Port</label>
-          <input type="text" id="edAsidePort" disabled />
-        </div>
-        <div class="ts-edit-field">
-          <label>Z-Seite PP</label>
-          <input type="text" id="edZsidePP" disabled />
-        </div>
-        <div class="ts-edit-field">
-          <label>Z-Seite Port</label>
-          <input type="text" id="edZsidePort" disabled />
-        </div>
-
-        <!-- Editable section -->
-        <div class="ts-section-label">Backbone-Weg (bearbeitbar)</div>
-        <div class="ts-edit-field">
-          <label>BB IN Patchpanel</label>
-          <input type="text" id="edBbInPP" placeholder="z.B. M5.13S1/RU3" />
-        </div>
-        <div class="ts-edit-field">
-          <label>BB IN Port</label>
-          <input type="text" id="edBbInPort" placeholder="z.B. 1A1" />
-        </div>
-        <div class="ts-edit-field">
-          <label>BB OUT Patchpanel</label>
-          <input type="text" id="edBbOutPP" placeholder="z.B. M5.4S6/RU5" />
-        </div>
-        <div class="ts-edit-field">
-          <label>BB OUT Port</label>
-          <input type="text" id="edBbOutPort" placeholder="z.B. 2B3" />
+  <!-- ════════════════════════════════════════════════════════
+       MODAL: BB-Weg bearbeiten (KW-Planning "Neue Installation" Style)
+       ════════════════════════════════════════════════════════ -->
+  <div id="modalEdit" class="modal-bg">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h3><span class="type-pill" id="edTypePill">Troubleshooting</span> Backbone-Weg bearbeiten</h3>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" id="btnCancelEdit">Abbrechen</button>
+          <button class="btn btn-primary" id="btnSaveEdit">Speichern</button>
         </div>
       </div>
-      <div class="ts-edit-actions">
-        <button class="btn" id="btnCancelEdit">Abbrechen</button>
-        <button class="btn btn-primary" id="btnSaveEdit">Speichern</button>
+
+      <div class="info-note">
+        Nur BB IN und BB OUT k&ouml;nnen bearbeitet werden. A-Seite und Z-Seite bleiben unver&auml;ndert.
+      </div>
+
+      <!-- ── 1. Grunddaten (readonly) ── -->
+      <div class="form-section">
+        <div class="form-section-title">Grunddaten</div>
+        <div class="form-row">
+          <div><label>Serial</label><input id="edSerial" class="input" readonly tabindex="-1" /></div>
+          <div><label>Status</label><input id="edStatus" class="input" readonly tabindex="-1" /></div>
+        </div>
+      </div>
+
+      <!-- ── 2. A-Seite (readonly) ── -->
+      <div class="form-section">
+        <div class="form-section-title">A-Seite (nicht &auml;nderbar)</div>
+        <div class="form-row">
+          <div><label>Switch Name</label><input id="edSwitchName" class="input" readonly tabindex="-1" /></div>
+          <div><label>Switch Port</label><input id="edSwitchPort" class="input" readonly tabindex="-1" /></div>
+          <div><label>A-Patchpanel</label><input id="edAsidePP" class="input" readonly tabindex="-1" /></div>
+          <div><label>A-Port</label><input id="edAsidePort" class="input" readonly tabindex="-1" /></div>
+        </div>
+      </div>
+
+      <!-- ── 3. Z-Seite (readonly) ── -->
+      <div class="form-section">
+        <div class="form-section-title">Z-Seite (nicht &auml;nderbar)</div>
+        <div class="form-row">
+          <div><label>Kunden Patchpanel</label><input id="edZsidePP" class="input" readonly tabindex="-1" /></div>
+          <div><label>Z-Port</label><input id="edZsidePort" class="input" readonly tabindex="-1" /></div>
+        </div>
+      </div>
+
+      <!-- ── 4. Backbone IN (editable) ── -->
+      <div class="form-section">
+        <div class="form-section-title">Backbone IN</div>
+        <div class="form-row">
+          <div><label>BB IN Patchpanel *</label><input id="edBbInPP" class="input" placeholder="z.B. M5.13S1/RU3" /></div>
+          <div><label>BB IN Port *</label><input id="edBbInPort" class="input" placeholder="z.B. 1A1" /></div>
+        </div>
+      </div>
+
+      <!-- ── 5. Backbone OUT (editable) ── -->
+      <div class="form-section">
+        <div class="form-section-title">Backbone OUT</div>
+        <div class="form-row">
+          <div><label>BB OUT Patchpanel *</label><input id="edBbOutPP" class="input" placeholder="z.B. M5.4S6/RU5" /></div>
+          <div><label>BB OUT Port *</label><input id="edBbOutPort" class="input" placeholder="z.B. 2B3" /></div>
+        </div>
       </div>
     </div>
   </div>
