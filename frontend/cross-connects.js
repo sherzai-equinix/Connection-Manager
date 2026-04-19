@@ -351,8 +351,7 @@ function toggleExpand(id) {
 async function doExport() {
   const status = $("statusFilter")?.value || "active";
   const qs = `?status=${encodeURIComponent(status)}`;
-  const base = String(window.API_CROSSCONNECTS || `${window.API_ROOT || ""}/cross-connects`).replace(/\/+$/, "");
-  const url = `${base}/export${qs}`;
+  const url = `${API_CC}/export${qs}`;
   console.log("[Export] calling:", url);
   try {
     toast("Export wird erstellt...", "info");

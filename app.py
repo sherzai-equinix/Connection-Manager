@@ -8,7 +8,7 @@ Ziel:
 - CORS & Prefix zentral über config.py
 """
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
@@ -123,6 +123,18 @@ app.include_router(historical_lines_router, dependencies=rbac_deps)
 
 # ✅ Live Presence (016) – kann sauber entfernt werden
 app.include_router(presence_router)
+
+# ------------------------------------------------------------
+# Alias: /cross_connects/* → /cross-connects/* (Unterstrich → Bindestrich)
+# Das Frontend nutzt teilweise cross_connects (Unterstrich), der Router hat cross-connects (Bindestrich)
+# ------------------------------------------------------------
+@app.get(f"{settings.api_prefix}/cross_connects/export", include_in_schema=False)
+def cross_connects_export_redirect(request: Request):
+    qs = str(request.url.query)
+    target = f"{settings.api_prefix}/cross-connects/export"
+    if qs:
+        target += f"?{qs}"
+    return RedirectResponse(url=target)
 
 # ------------------------------------------------------------
 # Frontend statisch serven (vermeidet CORS-Probleme bei file://)
