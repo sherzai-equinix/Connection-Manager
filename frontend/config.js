@@ -33,6 +33,7 @@
   window.API_ZSIDE = origin + "/zside";
   window.API_IMPORT = origin;
   window.API_HISTORICAL = window.API_ROOT + "/historical-lines";
+  window.API_TROUBLESHOOTING = window.API_ROOT + "/troubleshooting";
 
   // Inject Authorization header into all fetch() calls if token exists.
   const _origFetch = window.fetch.bind(window);
