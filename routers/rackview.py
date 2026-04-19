@@ -686,10 +686,12 @@ def patchpanel_search(q: str = Query(..., min_length=2),
 
 @router.get("/bb-panels-for-customer-room")
 def bb_panels_for_customer_room(customer_room: str = Query(...),
+                                bb_instance_id: str = Query(None),
                                 db: Session = Depends(get_db)):
     """
     BB panels in backbone rooms (5.4S6 / 5.13S1) whose ports peer to panels
     in the given customer room.  Tries multiple room variants for matching.
+    If bb_instance_id is given, only return panels in the same backbone room.
     """
     cr = customer_room.strip()
     # Build room variants: e.g. "M4.5" → {"M4.5", "4.5"}, "5.04S6" → {"5.04S6", "5.4S6"}
@@ -719,10 +721,20 @@ def bb_panels_for_customer_room(customer_room: str = Query(...),
         if m:
             variants.add(f"{m.group(1)}{m.group(2)}.{m.group(3)}{m.group(4)}")
     match_rooms = list(variants)
+    params = {f"r{i}": r for i, r in enumerate(match_rooms)}
+
+    # Determine backbone room filter
+    bb_room_filter = "('5.4S6','5.13S1')"
+    if bb_instance_id:
+        bb_row = db.execute(text(
+            "SELECT room FROM patchpanel_instances WHERE instance_id = :iid LIMIT 1"
+        ), {"iid": bb_instance_id.strip()}).fetchone()
+        if bb_row and bb_row.room:
+            bb_room_filter = "(:bb_room)"
+            params["bb_room"] = bb_row.room
 
     # Use IN clause with explicit bind params
     placeholders = ", ".join(f":r{i}" for i in range(len(match_rooms)))
-    params = {f"r{i}": r for i, r in enumerate(match_rooms)}
     rows = db.execute(text(f"""
         SELECT DISTINCT
             i.id        AS bb_db_id,
@@ -736,7 +748,7 @@ def bb_panels_for_customer_room(customer_room: str = Query(...),
         FROM patchpanel_instances i
         JOIN patchpanel_ports p   ON p.patchpanel_id = i.id
         JOIN patchpanel_instances peer ON peer.instance_id = p.peer_instance_id
-        WHERE i.room IN ('5.4S6','5.13S1')
+        WHERE i.room IN {bb_room_filter}
           AND peer.room IN ({placeholders})
         ORDER BY i.room, i.instance_id
     """), params).mappings().fetchall()

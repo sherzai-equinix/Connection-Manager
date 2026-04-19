@@ -92,6 +92,21 @@ def _ensure_table(db: Session) -> None:
     """))
     db.execute(text("CREATE INDEX IF NOT EXISTS ix_ts_log_serial ON public.troubleshooting_log(serial_number)"))
     db.execute(text("CREATE INDEX IF NOT EXISTS ix_ts_log_performed_at ON public.troubleshooting_log(performed_at DESC)"))
+    # Work-lines: lines a technician has queued for troubleshooting (persists across sessions)
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS public.troubleshooting_worklines (
+            id               BIGSERIAL PRIMARY KEY,
+            cross_connect_id BIGINT NOT NULL,
+            serial_number    TEXT NOT NULL,
+            troubleshoot_type TEXT NOT NULL,
+            ticket_number    TEXT,
+            note             TEXT,
+            created_by       TEXT NOT NULL,
+            created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            cc_data          JSONB
+        );
+    """))
+    db.execute(text("CREATE INDEX IF NOT EXISTS ix_ts_wl_user ON public.troubleshooting_worklines(created_by)"))
     db.commit()
     _TABLE_ENSURED = True
 
@@ -429,3 +444,84 @@ def download_troubleshooting_report(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ---------------------------------------------------------------------------
+# 5) Worklines CRUD — persist queued lines in DB
+# ---------------------------------------------------------------------------
+
+@router.get("/worklines")
+def get_worklines(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    _ensure_table(db)
+    username = current_user.get("username") or current_user.get("sub") or "unknown"
+    rows = db.execute(
+        text("SELECT * FROM public.troubleshooting_worklines WHERE created_by = :u ORDER BY created_at"),
+        {"u": username},
+    ).mappings().all()
+    return {"success": True, "items": [dict(r) for r in rows]}
+
+
+@router.post("/worklines")
+def add_workline(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    _ensure_table(db)
+    username = current_user.get("username") or current_user.get("sub") or "unknown"
+    cc_id = payload.get("cross_connect_id")
+    serial = payload.get("serial_number", "")
+    ts_type = payload.get("troubleshoot_type", "normal")
+    ticket_nr = payload.get("ticket_number", "")
+    note = payload.get("note", "")
+    cc_data = payload.get("cc_data", {})
+
+    if not cc_id:
+        raise HTTPException(status_code=400, detail="cross_connect_id fehlt.")
+
+    # Prevent duplicates per user
+    existing = db.execute(
+        text("SELECT id FROM public.troubleshooting_worklines WHERE created_by = :u AND cross_connect_id = :cc"),
+        {"u": username, "cc": cc_id},
+    ).fetchone()
+    if existing:
+        raise HTTPException(status_code=409, detail="Diese Leitung ist bereits in der Arbeitsliste.")
+
+    import json as _json
+    db.execute(
+        text("""
+            INSERT INTO public.troubleshooting_worklines
+                (cross_connect_id, serial_number, troubleshoot_type, ticket_number, note, created_by, cc_data)
+            VALUES (:cc, :serial, :ts_type, :ticket, :note, :user, :cc_data::jsonb)
+        """),
+        {
+            "cc": cc_id,
+            "serial": serial,
+            "ts_type": ts_type,
+            "ticket": ticket_nr or None,
+            "note": note or None,
+            "user": username,
+            "cc_data": _json.dumps(cc_data),
+        },
+    )
+    db.commit()
+    return {"success": True}
+
+
+@router.delete("/worklines/{cc_id}")
+def remove_workline(
+    cc_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    _ensure_table(db)
+    username = current_user.get("username") or current_user.get("sub") or "unknown"
+    db.execute(
+        text("DELETE FROM public.troubleshooting_worklines WHERE created_by = :u AND cross_connect_id = :cc"),
+        {"u": username, "cc": cc_id},
+    )
+    db.commit()
+    return {"success": True}
