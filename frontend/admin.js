@@ -193,6 +193,26 @@
     if (toggleBtn) {
       toggleBtn.className = u.is_active ? 'btn btn-sm btn-outline-danger' : 'btn btn-sm btn-outline-success';
     }
+
+    // ── Super-Admin guard: hide dangerous buttons for normal admins ──
+    var myUsername = (localStorage.getItem('username') || sessionStorage.getItem('username') || '').toLowerCase();
+    var isSuperAdmin = myUsername === 'admin';
+    var targetIsAdmin = u.role === 'admin' || u.role === 'superadmin';
+
+    // Delete button: only super-admin may delete anyone
+    var btnDel = el('btnDeleteUser');
+    if (btnDel) btnDel.style.display = isSuperAdmin ? '' : 'none';
+
+    // Reset password + toggle active: hide if normal admin targets another admin
+    var btnReset = el('btnResetPassword');
+    var btnToggle = el('btnToggleActive');
+    if (!isSuperAdmin && targetIsAdmin) {
+      if (btnReset) btnReset.style.display = 'none';
+      if (btnToggle) btnToggle.style.display = 'none';
+    } else {
+      if (btnReset) btnReset.style.display = '';
+      if (btnToggle) btnToggle.style.display = '';
+    }
   }
 
   // ── API calls ────────────────────────────────────────────────────────────

@@ -75,6 +75,29 @@ def _require_admin_user(current_user: Dict[str, Any]) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 
 
+def _is_super_admin(user: Dict[str, Any]) -> bool:
+    """The built-in 'admin' account is the only super-admin."""
+    return str(user.get("username") or "").lower() == "admin"
+
+
+def _guard_admin_target(actor: Dict[str, Any], target: Dict[str, Any], action: str) -> None:
+    """Prevent normal admins from touching other admin accounts.
+
+    Rules:
+      - The super-admin ('admin') may do anything.
+      - A normal admin may NOT reset-password / delete / deactivate another admin.
+    """
+    if _is_super_admin(actor):
+        return  # super-admin can do everything
+
+    target_role = normalize_role(target.get("role"))
+    if target_role in ("admin", "superadmin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Nur der Super-Admin darf Admin-Konten {action}.",
+        )
+
+
 def _get_user_by_id(db: Session, user_id: int) -> Dict[str, Any] | None:
     row = db.execute(
         text(
@@ -425,6 +448,8 @@ def reset_password(
     if not target:
         raise HTTPException(404, "User not found")
 
+    _guard_admin_target(current_user, target, "Passwort zuruecksetzen")
+
     raw_password = payload.new_password
     generated = False
     if not raw_password:
@@ -479,6 +504,8 @@ def toggle_user_active(
     if not target:
         raise HTTPException(404, "User not found")
 
+    _guard_admin_target(current_user, target, "aktivieren/deaktivieren")
+
     # Prevent admin from deactivating themselves
     if int(user_id) == int(current_user.get("id")):
         raise HTTPException(400, "Cannot deactivate your own account")
@@ -522,6 +549,13 @@ def delete_user(
     target = _get_user_by_id(db, user_id)
     if not target:
         raise HTTPException(404, "User not found")
+
+    # Only super-admin ('admin') can delete users
+    if not _is_super_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Nur der Super-Admin darf Benutzer loeschen.",
+        )
 
     username = target.get("username")
 
