@@ -547,6 +547,18 @@
           <button id="btnRefreshDashboard" class="btn">&#x21bb; Aktualisieren</button>
         </div>
 
+        <!-- ── Troubleshooting banner (hidden by default) ── -->
+        <div id="tsBanner" style="display:none;flex-shrink:0;animation:fadeSlideUp .45s cubic-bezier(.22,1,.36,1) both;">
+          <a href="troubleshooting.html" style="display:flex;align-items:center;gap:14px;padding:12px 20px;border-radius:14px;background:linear-gradient(135deg,rgba(239,83,80,.10) 0%,rgba(239,83,80,.04) 100%);border:1px solid rgba(239,83,80,.22);text-decoration:none;color:inherit;transition:border-color .2s,background .2s;">
+            <span style="font-size:1.4rem;">&#128295;</span>
+            <div style="flex:1;">
+              <div style="font-size:.88rem;font-weight:700;color:#ef5350;">Troubleshooting Aufgaben</div>
+              <div style="font-size:.75rem;color:var(--muted,#999);margin-top:2px;"><span id="tsBannerCount">0</span> offene Aufgaben in Bearbeitung</div>
+            </div>
+            <span style="font-size:.8rem;font-weight:600;color:#ef5350;opacity:.7;">Anzeigen &rarr;</span>
+          </a>
+        </div>
+
         <!-- ── Stat cards row ── -->
         <div class="dash-stats" id="dashboardGrid"></div>
         <div id="dashboardStatus"></div>

@@ -1824,6 +1824,15 @@ def get_dashboard_stats(
     except Exception:
         pass
 
+    # ---- Troubleshooting worklines count (all users) ----
+    ts_worklines_count = 0
+    try:
+        ts_worklines_count = db.execute(
+            text("SELECT COUNT(*) FROM public.troubleshooting_worklines")
+        ).scalar() or 0
+    except Exception:
+        pass
+
     c = dict(counts or {})
     tc = dict(task_counts or {})
     return {
@@ -1842,6 +1851,7 @@ def get_dashboard_stats(
             "kw_pathmove": int(kw_changes_counts.get("kw_pathmove") or 0),
             "kw_done": int(kw_changes_counts.get("kw_done") or 0),
             "kw_open": int(kw_changes_counts.get("kw_open") or 0),
+            "troubleshooting_worklines": int(ts_worklines_count),
         },
     }
 

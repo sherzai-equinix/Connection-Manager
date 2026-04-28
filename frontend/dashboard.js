@@ -89,6 +89,19 @@ function render(stats) {
       if (el) animateValue(el, val, 700);
     }
   });
+
+  // Troubleshooting banner
+  const tsCount = stats.troubleshooting_worklines || 0;
+  const tsBanner = $("tsBanner");
+  if (tsBanner) {
+    if (tsCount > 0) {
+      tsBanner.style.display = "block";
+      const cnt = $("tsBannerCount");
+      if (cnt) cnt.textContent = tsCount;
+    } else {
+      tsBanner.style.display = "none";
+    }
+  }
 }
 
 async function loadDashboard() {
