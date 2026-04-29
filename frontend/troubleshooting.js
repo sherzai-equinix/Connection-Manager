@@ -99,8 +99,9 @@
         cc_data: entry.data
       })
     }).catch(function (err) {
+      // 409 = already exists, that's fine
+      if (err && err.message && err.message.indexOf('409') !== -1) return;
       console.warn('Workline save failed:', err);
-      // Fallback: keep in localStorage
       saveFallbackList();
     });
   }
@@ -118,7 +119,7 @@
       .then(function (res) {
         var items = res.items || [];
         if (items.length) {
-          resultList = items.map(function (row) {
+          var dbEntries = items.map(function (row) {
             return {
               type: row.troubleshoot_type || 'normal',
               ticketNr: row.ticket_number || '',
@@ -127,9 +128,28 @@
               data: row.cc_data || {}
             };
           });
+          // Merge: add DB entries that are not already in resultList
+          dbEntries.forEach(function (dbEntry) {
+            var ccId = dbEntry.data.id || dbEntry.data.cross_connect_id;
+            var exists = resultList.some(function (e) {
+              return (e.data.id || e.data.cross_connect_id) === ccId;
+            });
+            if (!exists) resultList.push(dbEntry);
+          });
+          // Also remove local entries that are NOT in DB (were deleted elsewhere)
+          var dbIds = dbEntries.map(function (e) { return e.data.id || e.data.cross_connect_id; });
+          resultList = resultList.filter(function (e) {
+            var id = e.data.id || e.data.cross_connect_id;
+            return dbIds.indexOf(id) !== -1;
+          });
+          saveFallbackList();
         } else {
-          // Fallback: try localStorage
-          loadFallbackList();
+          // DB has no items - check if localStorage has something (first-time migration)
+          if (!resultList.length) loadFallbackList();
+          // If DB is empty, sync local items TO the DB
+          resultList.forEach(function (entry) {
+            dbSaveWorkline(entry).catch(function () {});
+          });
         }
         renderResults();
       })
