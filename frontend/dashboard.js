@@ -64,7 +64,16 @@ function render(stats) {
     if (pctEl) pctEl.textContent = kwTotal > 0 ? `${kwDone}/${kwTotal} (${pct}%)` : `${kwPending} offen`;
   }
 
-  const tsCount = stats.troubleshooting_worklines || 0;
+  // Troubleshooting count: prefer localStorage (same source as troubleshooting page), fallback to stats
+  let tsCount = 0;
+  try {
+    const raw = localStorage.getItem('ts_resultList');
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) tsCount = arr.length;
+    }
+  } catch (e) {}
+  if (tsCount === 0) tsCount = stats.troubleshooting_worklines || 0;
 
   const vals = {
     lines: stats.active_lines || 0,
