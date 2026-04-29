@@ -121,6 +121,19 @@ async function loadDashboard() {
     const data = await statsRes.json().catch(() => ({}));
     if (!statsRes.ok) throw new Error(data?.detail || `HTTP ${statsRes.status}`);
     render(data.stats || {}, tsCount); setStatus("");
+    // Update Troubleshooting sidebar widget
+    const tsWidget = $("tsWidget");
+    const tsWidgetCount = $("tsWidgetCount");
+    const tsWidgetBody = $("tsWidgetBody");
+    if (tsWidget) {
+      if (tsCount > 0) {
+        tsWidget.style.display = "block";
+        if (tsWidgetCount) tsWidgetCount.textContent = tsCount;
+        if (tsWidgetBody) tsWidgetBody.textContent = `${tsCount} Leitung${tsCount > 1 ? 'en' : ''} in Bearbeitung`;
+      } else {
+        tsWidget.style.display = "none";
+      }
+    }
   } catch (e) { setStatus(`Fehler: ${e.message}`); toast(e.message, "error"); }
 }
 
