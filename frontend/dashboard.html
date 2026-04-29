@@ -103,7 +103,7 @@
        ═══════════════════════════════════════════ */
     .dash-stats {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 12px; flex-shrink: 0;
     }
     .dash-card {
@@ -136,12 +136,14 @@
     .dash-card:nth-child(4) { animation-delay: .24s; }
     .dash-card:nth-child(5) { animation-delay: .30s; }
     .dash-card:nth-child(6) { animation-delay: .36s; }
+    .dash-card:nth-child(7) { animation-delay: .42s; }
     .dash-card:nth-child(1)::before { background: linear-gradient(90deg,#66bb6a,#43a047); }
     .dash-card:nth-child(2)::before { background: linear-gradient(90deg,#4fc3f7,#0288d1); }
     .dash-card:nth-child(3)::before { background: linear-gradient(90deg,#ef5350,#c62828); }
     .dash-card:nth-child(4)::before { background: linear-gradient(90deg,#ffb74d,#ef6c00); }
     .dash-card:nth-child(5)::before { background: linear-gradient(90deg,#ab47bc,#7b1fa2); }
     .dash-card:nth-child(6)::before { background: linear-gradient(90deg,#ffd54f,#f9a825); }
+    .dash-card:nth-child(7)::before { background: linear-gradient(90deg,#ef5350,#d32f2f); }
 
     .dash-card-icon {
       width: 44px; height: 44px; border-radius: 14px;
@@ -545,18 +547,6 @@
           </div>
           <a href="kw-planning.html" class="btn btn-primary">KW Planung</a>
           <button id="btnRefreshDashboard" class="btn">&#x21bb; Aktualisieren</button>
-        </div>
-
-        <!-- ── Troubleshooting banner (hidden by default) ── -->
-        <div id="tsBanner" style="display:none;flex-shrink:0;animation:fadeSlideUp .45s cubic-bezier(.22,1,.36,1) both;">
-          <a href="troubleshooting.html" style="display:flex;align-items:center;gap:14px;padding:12px 20px;border-radius:14px;background:linear-gradient(135deg,rgba(239,83,80,.10) 0%,rgba(239,83,80,.04) 100%);border:1px solid rgba(239,83,80,.22);text-decoration:none;color:inherit;transition:border-color .2s,background .2s;">
-            <span style="font-size:1.4rem;">&#128295;</span>
-            <div style="flex:1;">
-              <div style="font-size:.88rem;font-weight:700;color:#ef5350;">Troubleshooting Aufgaben</div>
-              <div style="font-size:.75rem;color:var(--muted,#999);margin-top:2px;"><span id="tsBannerCount">0</span> offene Aufgaben in Bearbeitung</div>
-            </div>
-            <span style="font-size:.8rem;font-weight:600;color:#ef5350;opacity:.7;">Anzeigen &rarr;</span>
-          </a>
         </div>
 
         <!-- ── Stat cards row ── -->

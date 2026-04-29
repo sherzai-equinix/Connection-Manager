@@ -44,7 +44,7 @@ function cardHtml(icon, iconBg, label, value, hint, target, id) {
   </a>`;
 }
 
-function render(stats) {
+function render(stats, tsCount = 0) {
   const grid = $("dashboardGrid"); if (!grid) return;
   const kwInfo = stats.current_kw || {};
   const kwLabel = kwInfo.year && kwInfo.kw ? `${kwInfo.year}-KW${String(kwInfo.kw).padStart(2,"0")}` : "-";
@@ -73,14 +73,23 @@ function render(stats) {
     kw: kwPending,
   };
 
-  grid.innerHTML = [
+  const cards = [
     cardHtml("&#128279;","rgba(102,187,106,.15)","Active Lines",vals.lines,"Aktive Leitungen","cross-connects.html?status=active","lines"),
     cardHtml("&#10133;","rgba(79,195,247,.15)","Install",vals.install,"Offene Neuinstall","kw-planning.html","install"),
     cardHtml("&#128465;","rgba(239,83,80,.15)","Deinstall",vals.deinstall,"Offene Rueckbauten","kw-planning.html","deinstall"),
     cardHtml("&#8596;","rgba(255,183,77,.15)","Line Move",vals.move,"Offene Line Moves","kw-planning.html","move"),
     cardHtml("&#8644;","rgba(171,71,188,.15)","Path Move",vals.pathmove,"Offene Path Moves","kw-planning.html","pathmove"),
     cardHtml("&#128197;","rgba(253,216,53,.15)","KW Offen",vals.kw,kwLabel,"kw-planning.html","kw"),
-  ].join("");
+  ];
+
+  if (tsCount > 0) {
+    vals.troubleshooting = tsCount;
+    cards.push(
+      cardHtml("&#128295;","rgba(239,83,80,.15)","Troubleshooting",tsCount,"Offene TS Aufgaben","troubleshooting.html","troubleshooting")
+    );
+  }
+
+  grid.innerHTML = cards.join("");
 
   // Animate the numbers
   requestAnimationFrame(() => {
@@ -89,38 +98,29 @@ function render(stats) {
       if (el) animateValue(el, val, 700);
     }
   });
-
 }
 
-/* ═══════════════════════════════════════════
-   TROUBLESHOOTING BANNER — direct API call
-   ═══════════════════════════════════════════ */
-async function loadTroubleshootingBanner() {
-  const tsBanner = $("tsBanner");
-  if (!tsBanner) return;
+async function getTroubleshootingCount() {
   try {
-    const API_TS = String(window.API_TROUBLESHOOTING || (window.API_ROOT || '') + '/troubleshooting').replace(/\/+$/, '');
-    const res = await fetch(`${API_TS}/worklines`);
+    const apiTs = String(window.API_TROUBLESHOOTING || (window.API_ROOT || '') + '/troubleshooting').replace(/\/+$/, '');
+    const res = await fetch(`${apiTs}/worklines`);
     const data = await res.json().catch(() => ({}));
-    if (res.ok && data.items && data.items.length > 0) {
-      tsBanner.style.display = "block";
-      const cnt = $("tsBannerCount");
-      if (cnt) cnt.textContent = data.items.length;
-    } else {
-      tsBanner.style.display = "none";
-    }
+    return res.ok && Array.isArray(data.items) ? data.items.length : 0;
   } catch (e) {
-    tsBanner.style.display = "none";
+    return 0;
   }
 }
 
 async function loadDashboard() {
   setStatus("Laden...", true);
   try {
-    const res = await fetch(`${API_DASHBOARD}/stats`);
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.detail || `HTTP ${res.status}`);
-    render(data.stats || {}); setStatus("");
+    const [statsRes, tsCount] = await Promise.all([
+      fetch(`${API_DASHBOARD}/stats`),
+      getTroubleshootingCount(),
+    ]);
+    const data = await statsRes.json().catch(() => ({}));
+    if (!statsRes.ok) throw new Error(data?.detail || `HTTP ${statsRes.status}`);
+    render(data.stats || {}, tsCount); setStatus("");
   } catch (e) { setStatus(`Fehler: ${e.message}`); toast(e.message, "error"); }
 }
 
@@ -311,7 +311,7 @@ function tbar(label, val, max, cls) {
 
 /* ── Init ── */
 document.addEventListener("DOMContentLoaded", () => {
-  $("btnRefreshDashboard")?.addEventListener("click", () => { loadDashboard(); loadQuarterly(); loadTroubleshootingBanner(); });
+  $("btnRefreshDashboard")?.addEventListener("click", () => { loadDashboard(); loadQuarterly(); });
   $("btnLoadQ")?.addEventListener("click", loadQuarterly);
   document.querySelectorAll(".q-tab").forEach(btn => {
     btn.addEventListener("click", () => switchTab(btn.dataset.tab));
@@ -319,5 +319,4 @@ document.addEventListener("DOMContentLoaded", () => {
   initQuarterSelectors();
   loadDashboard();
   loadQuarterly();
-  loadTroubleshootingBanner();
 });
