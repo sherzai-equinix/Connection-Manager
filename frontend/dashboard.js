@@ -73,6 +73,8 @@ function render(stats, tsCount = 0) {
     kw: kwPending,
   };
 
+  vals.troubleshooting = tsCount;
+
   const cards = [
     cardHtml("&#128279;","rgba(102,187,106,.15)","Active Lines",vals.lines,"Aktive Leitungen","cross-connects.html?status=active","lines"),
     cardHtml("&#10133;","rgba(79,195,247,.15)","Install",vals.install,"Offene Neuinstall","kw-planning.html","install"),
@@ -80,14 +82,8 @@ function render(stats, tsCount = 0) {
     cardHtml("&#8596;","rgba(255,183,77,.15)","Line Move",vals.move,"Offene Line Moves","kw-planning.html","move"),
     cardHtml("&#8644;","rgba(171,71,188,.15)","Path Move",vals.pathmove,"Offene Path Moves","kw-planning.html","pathmove"),
     cardHtml("&#128197;","rgba(253,216,53,.15)","KW Offen",vals.kw,kwLabel,"kw-planning.html","kw"),
+    cardHtml("&#128295;","rgba(239,83,80,.15)","Troubleshooting",tsCount,"Offene TS Aufgaben","troubleshooting.html","troubleshooting"),
   ];
-
-  if (tsCount > 0) {
-    vals.troubleshooting = tsCount;
-    cards.push(
-      cardHtml("&#128295;","rgba(239,83,80,.15)","Troubleshooting",tsCount,"Offene TS Aufgaben","troubleshooting.html","troubleshooting")
-    );
-  }
 
   grid.innerHTML = cards.join("");
 
@@ -103,10 +99,13 @@ function render(stats, tsCount = 0) {
 async function getTroubleshootingCount() {
   try {
     const apiTs = String(window.API_TROUBLESHOOTING || (window.API_ROOT || '') + '/troubleshooting').replace(/\/+$/, '');
+    console.log('[Dashboard] Fetching TS worklines from:', apiTs + '/worklines');
     const res = await fetch(`${apiTs}/worklines`);
     const data = await res.json().catch(() => ({}));
+    console.log('[Dashboard] TS worklines response:', res.status, data);
     return res.ok && Array.isArray(data.items) ? data.items.length : 0;
   } catch (e) {
+    console.error('[Dashboard] TS worklines fetch error:', e);
     return 0;
   }
 }
@@ -126,13 +125,11 @@ async function loadDashboard() {
     const tsWidgetCount = $("tsWidgetCount");
     const tsWidgetBody = $("tsWidgetBody");
     if (tsWidget) {
-      if (tsCount > 0) {
-        tsWidget.style.display = "block";
-        if (tsWidgetCount) tsWidgetCount.textContent = tsCount;
-        if (tsWidgetBody) tsWidgetBody.textContent = `${tsCount} Leitung${tsCount > 1 ? 'en' : ''} in Bearbeitung`;
-      } else {
-        tsWidget.style.display = "none";
-      }
+      tsWidget.style.display = "block";
+      if (tsWidgetCount) tsWidgetCount.textContent = tsCount;
+      if (tsWidgetBody) tsWidgetBody.textContent = tsCount > 0
+        ? `${tsCount} Leitung${tsCount > 1 ? 'en' : ''} in Bearbeitung`
+        : 'Keine offenen Aufgaben';
     }
   } catch (e) { setStatus(`Fehler: ${e.message}`); toast(e.message, "error"); }
 }
