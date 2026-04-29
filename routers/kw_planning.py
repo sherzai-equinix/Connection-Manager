@@ -1827,11 +1827,29 @@ def get_dashboard_stats(
     # ---- Troubleshooting worklines count (all users) ----
     ts_worklines_count = 0
     try:
+        db.execute(text("SAVEPOINT ts_count"))
+        db.execute(text("""
+            CREATE TABLE IF NOT EXISTS public.troubleshooting_worklines (
+                id               BIGSERIAL PRIMARY KEY,
+                cross_connect_id BIGINT NOT NULL,
+                serial_number    TEXT NOT NULL,
+                troubleshoot_type TEXT NOT NULL,
+                ticket_number    TEXT,
+                note             TEXT,
+                created_by       TEXT NOT NULL,
+                created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                cc_data          JSONB
+            )
+        """))
         ts_worklines_count = db.execute(
             text("SELECT COUNT(*) FROM public.troubleshooting_worklines")
         ).scalar() or 0
+        db.execute(text("RELEASE SAVEPOINT ts_count"))
     except Exception:
-        pass
+        try:
+            db.execute(text("ROLLBACK TO SAVEPOINT ts_count"))
+        except Exception:
+            pass
 
     c = dict(counts or {})
     tc = dict(task_counts or {})
