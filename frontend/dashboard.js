@@ -44,7 +44,7 @@ function cardHtml(icon, iconBg, label, value, hint, target, id) {
   </a>`;
 }
 
-function render(stats, tsCount = 0) {
+function render(stats) {
   const grid = $("dashboardGrid"); if (!grid) return;
   const kwInfo = stats.current_kw || {};
   const kwLabel = kwInfo.year && kwInfo.kw ? `${kwInfo.year}-KW${String(kwInfo.kw).padStart(2,"0")}` : "-";
@@ -64,6 +64,8 @@ function render(stats, tsCount = 0) {
     if (pctEl) pctEl.textContent = kwTotal > 0 ? `${kwDone}/${kwTotal} (${pct}%)` : `${kwPending} offen`;
   }
 
+  const tsCount = stats.troubleshooting_worklines || 0;
+
   const vals = {
     lines: stats.active_lines || 0,
     install: stats.pending_install || 0,
@@ -71,9 +73,8 @@ function render(stats, tsCount = 0) {
     move: stats.pending_move || 0,
     pathmove: stats.pending_path_move || 0,
     kw: kwPending,
+    troubleshooting: tsCount,
   };
-
-  vals.troubleshooting = tsCount;
 
   const cards = [
     cardHtml("&#128279;","rgba(102,187,106,.15)","Active Lines",vals.lines,"Aktive Leitungen","cross-connects.html?status=active","lines"),
@@ -94,43 +95,26 @@ function render(stats, tsCount = 0) {
       if (el) animateValue(el, val, 700);
     }
   });
-}
 
-async function getTroubleshootingCount() {
-  try {
-    const apiTs = String(window.API_TROUBLESHOOTING || (window.API_ROOT || '') + '/troubleshooting').replace(/\/+$/, '');
-    console.log('[Dashboard] Fetching TS worklines from:', apiTs + '/worklines');
-    const res = await fetch(`${apiTs}/worklines`);
-    const data = await res.json().catch(() => ({}));
-    console.log('[Dashboard] TS worklines response:', res.status, data);
-    return res.ok && Array.isArray(data.items) ? data.items.length : 0;
-  } catch (e) {
-    console.error('[Dashboard] TS worklines fetch error:', e);
-    return 0;
+  // Update Troubleshooting sidebar widget
+  const tsWidget = $("tsWidget");
+  const tsWidgetCount = $("tsWidgetCount");
+  const tsWidgetBody = $("tsWidgetBody");
+  if (tsWidget) {
+    if (tsWidgetCount) tsWidgetCount.textContent = tsCount;
+    if (tsWidgetBody) tsWidgetBody.textContent = tsCount > 0
+      ? `${tsCount} Leitung${tsCount > 1 ? 'en' : ''} in Bearbeitung`
+      : 'Keine offenen Aufgaben';
   }
 }
 
 async function loadDashboard() {
   setStatus("Laden...", true);
   try {
-    const [statsRes, tsCount] = await Promise.all([
-      fetch(`${API_DASHBOARD}/stats`),
-      getTroubleshootingCount(),
-    ]);
-    const data = await statsRes.json().catch(() => ({}));
-    if (!statsRes.ok) throw new Error(data?.detail || `HTTP ${statsRes.status}`);
-    render(data.stats || {}, tsCount); setStatus("");
-    // Update Troubleshooting sidebar widget
-    const tsWidget = $("tsWidget");
-    const tsWidgetCount = $("tsWidgetCount");
-    const tsWidgetBody = $("tsWidgetBody");
-    if (tsWidget) {
-      tsWidget.style.display = "block";
-      if (tsWidgetCount) tsWidgetCount.textContent = tsCount;
-      if (tsWidgetBody) tsWidgetBody.textContent = tsCount > 0
-        ? `${tsCount} Leitung${tsCount > 1 ? 'en' : ''} in Bearbeitung`
-        : 'Keine offenen Aufgaben';
-    }
+    const res = await fetch(`${API_DASHBOARD}/stats`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.detail || `HTTP ${res.status}`);
+    render(data.stats || {}); setStatus("");
   } catch (e) { setStatus(`Fehler: ${e.message}`); toast(e.message, "error"); }
 }
 
