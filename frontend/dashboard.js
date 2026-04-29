@@ -90,17 +90,27 @@ function render(stats) {
     }
   });
 
-  // Troubleshooting banner
-  const tsCount = stats.troubleshooting_worklines || 0;
+}
+
+/* ═══════════════════════════════════════════
+   TROUBLESHOOTING BANNER — direct API call
+   ═══════════════════════════════════════════ */
+async function loadTroubleshootingBanner() {
   const tsBanner = $("tsBanner");
-  if (tsBanner) {
-    if (tsCount > 0) {
+  if (!tsBanner) return;
+  try {
+    const API_TS = String(window.API_TROUBLESHOOTING || (window.API_ROOT || '') + '/troubleshooting').replace(/\/+$/, '');
+    const res = await fetch(`${API_TS}/worklines`);
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.items && data.items.length > 0) {
       tsBanner.style.display = "block";
       const cnt = $("tsBannerCount");
-      if (cnt) cnt.textContent = tsCount;
+      if (cnt) cnt.textContent = data.items.length;
     } else {
       tsBanner.style.display = "none";
     }
+  } catch (e) {
+    tsBanner.style.display = "none";
   }
 }
 
@@ -301,7 +311,7 @@ function tbar(label, val, max, cls) {
 
 /* ── Init ── */
 document.addEventListener("DOMContentLoaded", () => {
-  $("btnRefreshDashboard")?.addEventListener("click", () => { loadDashboard(); loadQuarterly(); });
+  $("btnRefreshDashboard")?.addEventListener("click", () => { loadDashboard(); loadQuarterly(); loadTroubleshootingBanner(); });
   $("btnLoadQ")?.addEventListener("click", loadQuarterly);
   document.querySelectorAll(".q-tab").forEach(btn => {
     btn.addEventListener("click", () => switchTab(btn.dataset.tab));
@@ -309,4 +319,5 @@ document.addEventListener("DOMContentLoaded", () => {
   initQuarterSelectors();
   loadDashboard();
   loadQuarterly();
+  loadTroubleshootingBanner();
 });
