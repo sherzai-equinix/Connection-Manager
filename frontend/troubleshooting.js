@@ -215,16 +215,15 @@
         return r.json();
       })
       .then(function (json) {
-        if (!json.success || !json.data) { toast('Keine aktive Leitung gefunden.', 'warn'); return; }
+        if (!json.success || !json.data) return;
         var exists = resultList.some(function (e) { return e.data.id === json.data.id; });
-        if (exists) { toast('Diese Leitung ist bereits in der Liste.', 'warn'); return; }
+        if (exists) return;
         var entry = { type: type, ticketNr: ticketNr, note: note, serial: serial, data: json.data };
         // Save to DB first, then add to local list
         dbSaveWorkline(entry).then(function () {
           resultList.push(entry);
           saveFallbackList();
           renderResults();
-          toast('Leitung hinzugefuegt.', 'success');
           // Clear inputs after successful add
           inputTicketNr.value = '';
           inputNote.value = '';
@@ -232,14 +231,13 @@
           inputSerialNormal.value = '';
           saveInputs();
         }).catch(function (err) {
-          toast('DB-Speichern fehlgeschlagen: ' + (err.message || 'Fehler'), 'error');
           // Still add locally as fallback
           resultList.push(entry);
           saveFallbackList();
           renderResults();
         });
       })
-      .catch(function (err) { toast(err.message || 'Suche fehlgeschlagen.', 'error'); });
+      .catch(function (err) { });
   }
 
   btnSearchTicket.addEventListener('click', function () { doSearch(inputSerialTicket.value); });
