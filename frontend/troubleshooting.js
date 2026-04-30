@@ -180,9 +180,33 @@
     btnTypeNormal.classList.toggle('active', type === 'normal');
     fieldsTicket.classList.toggle('visible', type === 'ticket');
     fieldsNormal.classList.toggle('visible', type === 'normal');
+    sessionStorage.setItem('ts_currentType', type);
   }
   btnTypeTicket.addEventListener('click', function () { setType('ticket'); });
   btnTypeNormal.addEventListener('click', function () { setType('normal'); });
+
+  /* ── Persist input fields across page navigation ── */
+  function saveInputs() {
+    sessionStorage.setItem('ts_ticketNr', inputTicketNr.value || '');
+    sessionStorage.setItem('ts_note', inputNote.value || '');
+    sessionStorage.setItem('ts_serialTicket', inputSerialTicket.value || '');
+    sessionStorage.setItem('ts_serialNormal', inputSerialNormal.value || '');
+  }
+  function restoreInputs() {
+    var savedType = sessionStorage.getItem('ts_currentType');
+    if (savedType === 'ticket' || savedType === 'normal') setType(savedType);
+    inputTicketNr.value = sessionStorage.getItem('ts_ticketNr') || '';
+    inputNote.value = sessionStorage.getItem('ts_note') || '';
+    inputSerialTicket.value = sessionStorage.getItem('ts_serialTicket') || '';
+    inputSerialNormal.value = sessionStorage.getItem('ts_serialNormal') || '';
+  }
+  // Save on every input change
+  inputTicketNr.addEventListener('input', saveInputs);
+  inputNote.addEventListener('input', saveInputs);
+  inputSerialTicket.addEventListener('input', saveInputs);
+  inputSerialNormal.addEventListener('input', saveInputs);
+  // Restore on page load
+  restoreInputs();
 
   /* ══════════════════════════════════════════
      SEARCH (accumulate results)
@@ -215,6 +239,12 @@
         // Persist in DB
         dbSaveWorkline(entry).catch(function () {});
         toast('Leitung hinzugefuegt.', 'success');
+        // Clear inputs after successful add
+        inputTicketNr.value = '';
+        inputNote.value = '';
+        inputSerialTicket.value = '';
+        inputSerialNormal.value = '';
+        saveInputs();
       })
       .catch(function (err) { toast(err.message || 'Suche fehlgeschlagen.', 'error'); });
   }
