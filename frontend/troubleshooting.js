@@ -119,7 +119,8 @@
       .then(function (res) {
         var items = res.items || [];
         if (items.length) {
-          var dbEntries = items.map(function (row) {
+          // DB is the single source of truth
+          resultList = items.map(function (row) {
             return {
               type: row.troubleshoot_type || 'normal',
               ticketNr: row.ticket_number || '',
@@ -128,33 +129,16 @@
               data: row.cc_data || {}
             };
           });
-          // Merge: add DB entries that are not already in resultList
-          dbEntries.forEach(function (dbEntry) {
-            var ccId = dbEntry.data.id || dbEntry.data.cross_connect_id;
-            var exists = resultList.some(function (e) {
-              return (e.data.id || e.data.cross_connect_id) === ccId;
-            });
-            if (!exists) resultList.push(dbEntry);
-          });
-          // Also remove local entries that are NOT in DB (were deleted elsewhere)
-          var dbIds = dbEntries.map(function (e) { return e.data.id || e.data.cross_connect_id; });
-          resultList = resultList.filter(function (e) {
-            var id = e.data.id || e.data.cross_connect_id;
-            return dbIds.indexOf(id) !== -1;
-          });
           saveFallbackList();
         } else {
-          // DB has no items - check if localStorage has something (first-time migration)
-          if (!resultList.length) loadFallbackList();
-          // If DB is empty, sync local items TO the DB
-          resultList.forEach(function (entry) {
-            dbSaveWorkline(entry).catch(function () {});
-          });
+          // DB is empty — clear local list too
+          resultList = [];
+          saveFallbackList();
         }
         renderResults();
       })
       .catch(function () {
-        // API failed — try localStorage fallback
+        // API failed — use localStorage as fallback
         loadFallbackList();
         renderResults();
       });
@@ -323,7 +307,13 @@
         if (i >= 0) resultList.splice(i, 1);
         saveFallbackList();
         renderResults();
-        dbRemoveWorkline(ccId).catch(function () {});
+        dbRemoveWorkline(ccId).then(function () {
+          // Confirm removal succeeded
+          saveFallbackList();
+        }).catch(function () {
+          // If DB delete failed, keep local state (already removed)
+          saveFallbackList();
+        });
       });
       actionCell.appendChild(btnRemove);
 
