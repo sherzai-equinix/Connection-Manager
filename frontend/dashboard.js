@@ -111,9 +111,38 @@ function render(stats) {
   const tsWidgetBody = $("tsWidgetBody");
   if (tsWidget) {
     if (tsWidgetCount) tsWidgetCount.textContent = tsCount;
-    if (tsWidgetBody) tsWidgetBody.textContent = tsCount > 0
-      ? `${tsCount} Leitung${tsCount > 1 ? 'en' : ''} in Bearbeitung`
-      : 'Keine offenen Aufgaben';
+    // Load detailed worklines from API for sidebar
+    loadTsWidgetDetails();
+  }
+}
+
+async function loadTsWidgetDetails() {
+  const body = $("tsWidgetBody");
+  if (!body) return;
+  try {
+    const apiTs = String(window.API_TROUBLESHOOTING || (window.API_ROOT || '') + '/troubleshooting').replace(/\/+$/, '');
+    const res = await fetch(`${apiTs}/worklines/all`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.items || !data.items.length) {
+      body.innerHTML = '<div style="opacity:.5;text-align:center;padding:8px 0;">Keine aktiven Aufgaben</div>';
+      return;
+    }
+    let html = '';
+    for (const item of data.items) {
+      const user = esc(item.created_by || 'Unbekannt');
+      const type = item.troubleshoot_type === 'ticket' ? 'Ticket' : 'Normal';
+      const ticket = item.ticket_number ? esc(item.ticket_number) : '';
+      const serial = esc(item.serial_number || '');
+      const label = type === 'Ticket' && ticket ? `Ticket #${ticket}` : `${serial}`;
+      html += `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);display:flex;align-items:center;gap:8px;">`;
+      html += `<span style="width:8px;height:8px;border-radius:50%;background:#ef5350;flex-shrink:0;"></span>`;
+      html += `<div style="flex:1;min-width:0;"><div style="font-size:.78rem;font-weight:600;text-transform:capitalize;">${user}</div>`;
+      html += `<div style="font-size:.68rem;color:var(--muted,#999);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(type)}: ${label}</div></div>`;
+      html += `</div>`;
+    }
+    body.innerHTML = html;
+  } catch (e) {
+    body.innerHTML = '<div style="opacity:.5;text-align:center;padding:8px 0;">Laden fehlgeschlagen</div>';
   }
 }
 

@@ -464,6 +464,19 @@ def get_worklines(
     return {"success": True, "items": [dict(r) for r in rows]}
 
 
+@router.get("/worklines/all")
+def get_all_worklines(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Return all worklines from all users (for dashboard widget)."""
+    _ensure_table(db)
+    rows = db.execute(
+        text("SELECT id, cross_connect_id, serial_number, troubleshoot_type, ticket_number, note, created_by, created_at FROM public.troubleshooting_worklines ORDER BY created_at DESC"),
+    ).mappings().all()
+    return {"success": True, "items": [dict(r) for r in rows]}
+
+
 @router.post("/worklines")
 def add_workline(
     payload: dict,
