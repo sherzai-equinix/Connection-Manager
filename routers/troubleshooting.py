@@ -483,6 +483,9 @@ def add_workline(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
+    import json as _json
+    import traceback as _tb
+
     _ensure_table(db)
     username = current_user.get("username") or current_user.get("sub") or "unknown"
     cc_id = payload.get("cross_connect_id")
@@ -495,33 +498,40 @@ def add_workline(
     if not cc_id:
         raise HTTPException(status_code=400, detail="cross_connect_id fehlt.")
 
-    # Prevent duplicates per user
-    existing = db.execute(
-        text("SELECT id FROM public.troubleshooting_worklines WHERE created_by = :u AND cross_connect_id = :cc"),
-        {"u": username, "cc": cc_id},
-    ).fetchone()
-    if existing:
-        raise HTTPException(status_code=409, detail="Diese Leitung ist bereits in der Arbeitsliste.")
+    try:
+        # Prevent duplicates per user
+        existing = db.execute(
+            text("SELECT id FROM public.troubleshooting_worklines WHERE created_by = :u AND cross_connect_id = :cc"),
+            {"u": username, "cc": cc_id},
+        ).fetchone()
+        if existing:
+            raise HTTPException(status_code=409, detail="Diese Leitung ist bereits in der Arbeitsliste.")
 
-    import json as _json
-    db.execute(
-        text("""
-            INSERT INTO public.troubleshooting_worklines
-                (cross_connect_id, serial_number, troubleshoot_type, ticket_number, note, created_by, cc_data)
-            VALUES (:cc, :serial, :ts_type, :ticket, :note, :user, :cc_data::jsonb)
-        """),
-        {
-            "cc": cc_id,
-            "serial": serial,
-            "ts_type": ts_type,
-            "ticket": ticket_nr or None,
-            "note": note or None,
-            "user": username,
-            "cc_data": _json.dumps(cc_data),
-        },
-    )
-    db.commit()
-    return {"success": True}
+        cc_data_str = _json.dumps(cc_data) if cc_data else "{}"
+        db.execute(
+            text("""
+                INSERT INTO public.troubleshooting_worklines
+                    (cross_connect_id, serial_number, troubleshoot_type, ticket_number, note, created_by, cc_data)
+                VALUES (:cc, :serial, :ts_type, :ticket, :note, :user, cast(:cc_data as jsonb))
+            """),
+            {
+                "cc": int(cc_id),
+                "serial": serial or "",
+                "ts_type": ts_type or "normal",
+                "ticket": ticket_nr or None,
+                "note": note or None,
+                "user": username,
+                "cc_data": cc_data_str,
+            },
+        )
+        db.commit()
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"[TS] add_workline ERROR: {e}\n{_tb.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Workline speichern fehlgeschlagen: {str(e)}")
 
 
 @router.delete("/worklines/{cc_id}")
