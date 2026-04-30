@@ -101,6 +101,7 @@
     }).then(function (res) {
       return res.json().then(function (data) {
         if (!res.ok && res.status !== 409) {
+          console.error('[TS] Save workline failed:', res.status, data);
           throw new Error(data.detail || 'HTTP ' + res.status);
         }
         return data;
@@ -133,13 +134,13 @@
           });
           saveFallbackList();
         } else {
-          // DB is empty — clear local list too
-          resultList = [];
-          saveFallbackList();
+          // DB returned empty — keep localStorage as fallback (data might not have been saved)
+          loadFallbackList();
         }
         renderResults();
       })
-      .catch(function () {
+      .catch(function (err) {
+        console.error('[TS] Load worklines failed:', err);
         // API failed — use localStorage as fallback
         loadFallbackList();
         renderResults();
