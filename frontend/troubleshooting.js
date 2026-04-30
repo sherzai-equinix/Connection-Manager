@@ -87,7 +87,7 @@
      DB PERSISTENCE — save / load / remove work lines
      ══════════════════════════════════════════ */
   function dbSaveWorkline(entry) {
-    return apiJson(API_TS + '/worklines', {
+    return fetch(API_TS + '/worklines', {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({
@@ -98,11 +98,13 @@
         note: entry.note || '',
         cc_data: entry.data
       })
-    }).catch(function (err) {
-      // 409 = already exists, that's fine
-      if (err && err.message && err.message.indexOf('409') !== -1) return;
-      console.warn('Workline save failed:', err);
-      saveFallbackList();
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        if (!res.ok && res.status !== 409) {
+          throw new Error(data.detail || 'HTTP ' + res.status);
+        }
+        return data;
+      });
     });
   }
 
@@ -217,18 +219,25 @@
         var exists = resultList.some(function (e) { return e.data.id === json.data.id; });
         if (exists) { toast('Diese Leitung ist bereits in der Liste.', 'warn'); return; }
         var entry = { type: type, ticketNr: ticketNr, note: note, serial: serial, data: json.data };
-        resultList.push(entry);
-        saveFallbackList();
-        renderResults();
-        // Persist in DB
-        dbSaveWorkline(entry).catch(function () {});
-        toast('Leitung hinzugefuegt.', 'success');
-        // Clear inputs after successful add
-        inputTicketNr.value = '';
-        inputNote.value = '';
-        inputSerialTicket.value = '';
-        inputSerialNormal.value = '';
-        saveInputs();
+        // Save to DB first, then add to local list
+        dbSaveWorkline(entry).then(function () {
+          resultList.push(entry);
+          saveFallbackList();
+          renderResults();
+          toast('Leitung hinzugefuegt.', 'success');
+          // Clear inputs after successful add
+          inputTicketNr.value = '';
+          inputNote.value = '';
+          inputSerialTicket.value = '';
+          inputSerialNormal.value = '';
+          saveInputs();
+        }).catch(function (err) {
+          toast('DB-Speichern fehlgeschlagen: ' + (err.message || 'Fehler'), 'error');
+          // Still add locally as fallback
+          resultList.push(entry);
+          saveFallbackList();
+          renderResults();
+        });
       })
       .catch(function (err) { toast(err.message || 'Suche fehlgeschlagen.', 'error'); });
   }
