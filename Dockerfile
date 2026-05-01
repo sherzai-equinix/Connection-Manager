@@ -10,8 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py config.py database.py models.py security.py audit.py crud.py \
-     migration.py complete_migration.py check_patchpanels.py ./
+COPY app.py config.py database.py models.py security.py audit.py crud.py ./
 COPY routers/ routers/
 COPY scripts/ scripts/
 COPY migrations/ migrations/
