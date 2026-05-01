@@ -5,10 +5,6 @@ from sqlalchemy.exc import IntegrityError
 
 from database import get_db
 from models import Device, Connection, ConnectionCreate, ConnectionRead
-print("=== DEBUG connections.py ===")
-print(f"Import check - ConnectionCreate: {ConnectionCreate}")
-print(f"Import check - ConnectionRead: {ConnectionRead}")
-print("===========================")
 
 router = APIRouter(tags=["connections"])
 

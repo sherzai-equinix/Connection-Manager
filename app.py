@@ -156,23 +156,6 @@ def redirect_to_login():
 app.mount("/frontend", StaticFiles(directory="frontend"), name="frontend")
 
 # ------------------------------------------------------------
-# Debug: Routes anzeigen
-# ------------------------------------------------------------
-def print_all_routes():
-    print("=" * 60)
-    print("📋 REGISTRIERTE ENDPOINTS:")
-    print("=" * 60)
-    for route in app.routes:
-        if hasattr(route, "path"):
-            methods = getattr(route, "methods", None)
-            print(f"  • {route.path} {methods}")
-    print("=" * 60)
-
-@app.on_event("startup")
-async def startup_event():
-    print_all_routes()
-
-# ------------------------------------------------------------
 # Root + Health
 # ------------------------------------------------------------
 @app.get("/")
