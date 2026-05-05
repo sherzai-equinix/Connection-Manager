@@ -191,7 +191,16 @@ async function fetchPPsByRoom(room) {
 
 async function fetchPorts(ppId) {
   const d = await apiJson(`${API_PP}/${ppId}/ports`);
-  return d.ports || [];
+  const ports = d.ports || [];
+  // Attach reserved port info directly to ports
+  try {
+    const r = await apiJson(`${API_PP}/${ppId}/reserved-ports`);
+    const reservedSet = new Set(Array.isArray(r.reserved_ports) ? r.reserved_ports : []);
+    if (reservedSet.size > 0) {
+      ports._reservedPorts = reservedSet;
+    }
+  } catch (_) {}
+  return ports;
 }
 
 function populateRoomSelect(selectEl, rooms) {
@@ -213,11 +222,16 @@ function populatePPSelect(selectEl, pps) {
 }
 
 /* ── Port Grid Renderer (cassette-style) ── */
-function renderPortGrid(container, ports, onPick, selectedLabel) {
+function renderPortGrid(container, ports, onPick, selectedLabel, reservedSet) {
   container.innerHTML = "";
   if (!ports || !ports.length) {
     container.innerHTML = '<div class="small muted">Keine Ports gefunden.</div>';
     return;
+  }
+
+  // Auto-detect reserved ports from array property if not explicitly passed
+  if (!reservedSet && ports._reservedPorts) {
+    reservedSet = ports._reservedPorts;
   }
 
   const map = new Map();
@@ -257,7 +271,7 @@ function renderPortGrid(container, ports, onPick, selectedLabel) {
       return na - nb || a[0].localeCompare(b[0]);
     });
     for (const [label, p] of sorted) {
-      wrap.appendChild(_makePortBtn(label, p, onPick, selectedLabel));
+      wrap.appendChild(_makePortBtn(label, p, onPick, selectedLabel, reservedSet));
     }
     container.appendChild(wrap);
     return;
@@ -278,7 +292,7 @@ function renderPortGrid(container, ports, onPick, selectedLabel) {
       for (const pos of POSITIONS) {
         const label = `${row}${letter}${pos}`;
         const p = map.get(label);
-        grid.appendChild(_makePortBtn(label, p, onPick, selectedLabel));
+        grid.appendChild(_makePortBtn(label, p, onPick, selectedLabel, reservedSet));
       }
       card.appendChild(grid);
       rowDiv.appendChild(card);
@@ -287,7 +301,7 @@ function renderPortGrid(container, ports, onPick, selectedLabel) {
   }
 }
 
-function _makePortBtn(label, port, onPick, selectedLabel) {
+function _makePortBtn(label, port, onPick, selectedLabel, reservedSet) {
   const btn = document.createElement("button");
   btn.className = "pbtn";
   btn.textContent = label;
@@ -300,8 +314,14 @@ function _makePortBtn(label, port, onPick, selectedLabel) {
 
   const isOcc = port.occupied || port.status === "occupied";
   const isSel = selectedLabel && label === selectedLabel;
+  const isReserved = reservedSet && reservedSet.has(label) && !isSel;
 
-  if (isOcc && !isSel) {
+  if (isReserved && !isOcc) {
+    btn.classList.add("reserved");
+    btn.title = `Reserviert (KW-Planung)`;
+    btn.disabled = true;
+    btn.style.cursor = "not-allowed";
+  } else if (isOcc && !isSel) {
     btn.classList.add("occ");
     const occInfo = `${port.serial || ""} ${port.customer || ""}`.trim();
     btn.title = `Belegt: ${occInfo}`;
@@ -381,14 +401,14 @@ function _showOccupiedPortPopup(anchorBtn, port) {
 }
 
 /* Reusable port grid binder with selection feedback */
-function _bindPortGrid(gridEl, labelEl, ports, stateObj, ppName) {
+function _bindPortGrid(gridEl, labelEl, ports, stateObj, ppName, reservedSet) {
   function pick(label) {
     stateObj.portLabel = label;
     labelEl.textContent = `Gewaehlt: ${ppName} / Port ${label}`;
     labelEl.style.display = "block";
-    renderPortGrid(gridEl, ports, pick, label);
+    renderPortGrid(gridEl, ports, pick, label, reservedSet);
   }
-  renderPortGrid(gridEl, ports, pick, stateObj.portLabel);
+  renderPortGrid(gridEl, ports, pick, stateObj.portLabel, reservedSet);
 }
 
 /* ── CC Preview Card HTML ── */

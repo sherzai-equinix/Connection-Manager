@@ -984,6 +984,7 @@ def get_reserved_ports(
 ):
     """Return port labels on this patchpanel that are reserved (planned for
     install/move in the current KW but not yet done)."""
+    import json as _json
 
     panel = db.execute(
         text("SELECT id, instance_id FROM patchpanel_instances WHERE id = :id LIMIT 1"),
@@ -1002,7 +1003,7 @@ def get_reserved_ports(
     ).mappings().first()
 
     if not plan_row:
-        return {"success": True, "reserved_ports": []}
+        return {"success": True, "reserved_ports": [], "debug_no_plan": True}
 
     plan_id = int(plan_row["id"])
 
@@ -1013,7 +1014,7 @@ def get_reserved_ports(
             SELECT type, payload_json
             FROM public.kw_changes
             WHERE kw_plan_id = :pid
-              AND LOWER(status) NOT IN ('done', 'canceled', 'cancelled')
+              AND LOWER(COALESCE(status, 'planned')) NOT IN ('done', 'canceled', 'cancelled')
             """
         ),
         {"pid": plan_id},
@@ -1027,51 +1028,93 @@ def get_reserved_ports(
         if not payload:
             continue
         if isinstance(payload, str):
-            import json as _json
             try:
                 payload = _json.loads(payload)
             except Exception:
                 continue
+        if not isinstance(payload, dict):
+            continue
 
-        if ch_type == "NEW_INSTALL":
-            line = payload.get("new_line") or payload
-            _collect_reserved(line, instance_id, pp_id, reserved)
-        elif ch_type == "LINE_MOVE":
-            new_z = payload.get("new_z") or {}
-            _collect_reserved(new_z, instance_id, pp_id, reserved)
-        elif ch_type == "PATH_MOVE":
-            # path move may reference backbone ports
-            _collect_reserved(payload, instance_id, pp_id, reserved)
+        _extract_reserved_ports(ch_type, payload, instance_id, pp_id, reserved)
 
     return {"success": True, "reserved_ports": sorted(reserved)}
 
 
-def _collect_reserved(data: dict, instance_id: str, pp_id: int, out: set):
-    """Extract port labels from payload data that reference the given patchpanel."""
-    if not data or not isinstance(data, dict):
-        return
+def _safe_int(v) -> int | None:
+    """Convert value to int or return None."""
+    if v is None:
+        return None
+    try:
+        return int(v)
+    except (ValueError, TypeError):
+        return None
 
-    # Z-side: customer_patchpanel_instance_id matches instance_id
-    z_pp = str(data.get("customer_patchpanel_instance_id") or "").strip()
-    z_pp_id = data.get("customer_patchpanel_id")
-    z_port = str(data.get("customer_port_label") or "").strip()
-    if z_port and (z_pp == instance_id or (z_pp_id is not None and int(z_pp_id) == pp_id if str(z_pp_id).isdigit() else False)):
-        out.add(z_port)
 
-    # A-side: a_patchpanel_id matches instance_id
-    a_pp = str(data.get("a_patchpanel_id") or "").strip()
-    a_port = str(data.get("a_port_label") or "").strip()
-    if a_port and a_pp == instance_id:
-        out.add(a_port)
+def _port_matches_panel(data: dict, instance_id: str, pp_id: int,
+                        pp_key: str, pp_instance_key: str, port_key: str) -> str | None:
+    """If the port in data references this patchpanel, return the port label."""
+    port_label = str(data.get(port_key) or "").strip()
+    if not port_label:
+        return None
 
-    # Backbone IN
-    bb_in_pp = str(data.get("backbone_in_instance_id") or "").strip()
-    bb_in_port = str(data.get("backbone_in_port_label") or "").strip()
-    if bb_in_port and bb_in_pp == instance_id:
-        out.add(bb_in_port)
+    # Match by instance_id string
+    pp_inst = str(data.get(pp_instance_key) or "").strip()
+    if pp_inst and pp_inst == instance_id:
+        return port_label
 
-    # Backbone OUT
-    bb_out_pp = str(data.get("backbone_out_instance_id") or "").strip()
-    bb_out_port = str(data.get("backbone_out_port_label") or "").strip()
-    if bb_out_port and bb_out_pp == instance_id:
-        out.add(bb_out_port)
+    # Match by numeric DB id
+    pp_db_id = _safe_int(data.get(pp_key))
+    if pp_db_id is not None and pp_db_id == pp_id:
+        return port_label
+
+    return None
+
+
+def _extract_reserved_ports(ch_type: str, payload: dict, instance_id: str, pp_id: int, out: set):
+    """Extract all port labels from a kw_change payload that reference the given patchpanel."""
+
+    def _collect(data: dict):
+        if not data or not isinstance(data, dict):
+            return
+        # Z-side
+        lbl = _port_matches_panel(data, instance_id, pp_id,
+                                  "customer_patchpanel_id", "customer_patchpanel_instance_id", "customer_port_label")
+        if lbl:
+            out.add(lbl)
+
+        # A-side (a_patchpanel_id is stored as instance_id string)
+        a_pp = str(data.get("a_patchpanel_id") or "").strip()
+        a_port = str(data.get("a_port_label") or "").strip()
+        if a_port and a_pp and a_pp == instance_id:
+            out.add(a_port)
+
+        # Backbone IN
+        bb_in = str(data.get("backbone_in_instance_id") or "").strip()
+        bb_in_port = str(data.get("backbone_in_port_label") or "").strip()
+        if bb_in_port and bb_in == instance_id:
+            out.add(bb_in_port)
+
+        # Backbone OUT
+        bb_out = str(data.get("backbone_out_instance_id") or "").strip()
+        bb_out_port = str(data.get("backbone_out_port_label") or "").strip()
+        if bb_out_port and bb_out == instance_id:
+            out.add(bb_out_port)
+
+    if ch_type == "NEW_INSTALL":
+        line = payload.get("new_line") or payload
+        _collect(line)
+    elif ch_type == "DEINSTALL":
+        # Deinstall frees ports, no reservation needed
+        pass
+    elif ch_type == "LINE_MOVE":
+        new_z = payload.get("new_z") or {}
+        _collect(new_z)
+        # Also check top-level for bb ports
+        _collect(payload)
+    elif ch_type == "PATH_MOVE":
+        _collect(payload)
+        # Check sub-dicts for old/new bb refs
+        for sub_key in ("line_a_old_bb", "line_b_old_bb"):
+            sub = payload.get(sub_key)
+            if isinstance(sub, dict):
+                _collect(sub)

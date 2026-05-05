@@ -337,8 +337,9 @@ function renderCassettes(slot){
       for(let i=st;i<=en;i++){
         const port=pm.get(i)||{port_number:i,is_occupied:false,status:"free"};
         const lab=cassLabel(i);
+        const dbLabel=port.port_label||lab;
         const occ=!!port.is_occupied, unav=String(port.status||"").toLowerCase()==="unavailable";
-        const isReserved=s.reservedPorts&&s.reservedPorts.has(lab);
+        const isReserved=s.reservedPorts&&(s.reservedPorts.has(lab)||s.reservedPorts.has(dbLabel));
         const cls=unav?"unavailable":(occ?"occupied":(isReserved?"reserved":"free"));
         const stateLabel=unav?"n/a":(occ?"belegt":(isReserved?"reserviert":"frei"));
         html+=`<button type="button" class="port-tile ${cls}" data-pn="${i}" data-slot="${slot}" title="Port ${lab} (#${i}) – ${stateLabel}"${unav?" disabled":""}>
@@ -384,8 +385,9 @@ function renderCassettes(slot){
           if(pn>total) break;
           const port=pm.get(pn)||{port_number:pn,is_occupied:false,status:"free"};
           const lab=cassLabel(pn);
+          const dbLabel=port.port_label||lab;
           const occ=!!port.is_occupied, unav=String(port.status||"").toLowerCase()==="unavailable";
-          const isReserved=s.reservedPorts&&s.reservedPorts.has(lab);
+          const isReserved=s.reservedPorts&&(s.reservedPorts.has(lab)||s.reservedPorts.has(dbLabel));
           const cls=unav?"unavailable":(occ?"occupied":(isReserved?"reserved":"free"));
           const stateLabel=unav?"n/a":(occ?"belegt":(isReserved?"reserviert":"frei"));
           html+=`<button type="button" class="port-tile ${cls}" data-pn="${pn}" data-slot="${slot}" title="Port ${lab} (#${pn}) – ${stateLabel}"${unav?" disabled":""}>
@@ -448,8 +450,10 @@ function renderTable(slot){
     <thead><tr><th>#</th><th>Port</th><th>Status</th><th>Serial</th><th>Kunde</th><th>Side</th></tr></thead><tbody>`;
   for(const port of s.ports){
     const lab=cassLabel(port.port_number);
+    const dbLabel=port.port_label||lab;
     const st=String(port.status||"").toLowerCase();
-    const badge=st==="unavailable"?'<span class="badge badge-danger">n/a</span>':(port.is_occupied?'<span class="badge badge-warning">belegt</span>':'<span class="badge badge-neutral">frei</span>');
+    const isReserved=s.reservedPorts&&(s.reservedPorts.has(lab)||s.reservedPorts.has(dbLabel))&&!port.is_occupied;
+    const badge=st==="unavailable"?'<span class="badge badge-danger">n/a</span>':(port.is_occupied?'<span class="badge badge-warning">belegt</span>':(isReserved?'<span class="badge" style="background:rgba(234,179,8,.18);color:#ca8a04;border-color:rgba(234,179,8,.4);">reserviert</span>':'<span class="badge badge-neutral">frei</span>'));
     html+=`<tr class="pp-tbl-row" data-pn="${port.port_number}" data-slot="${slot}" style="cursor:pointer">
       <td>${port.port_number||"-"}</td><td>${esc(lab)}</td><td>${badge}</td>
       <td class="mono">${esc(port.serial||"-")}</td><td>${esc(port.customer||"-")}</td><td>${esc(port.side||"-")}</td></tr>`;
