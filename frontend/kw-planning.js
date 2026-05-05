@@ -192,15 +192,83 @@ async function fetchPPsByRoom(room) {
 async function fetchPorts(ppId) {
   const d = await apiJson(`${API_PP}/${ppId}/ports`);
   const ports = d.ports || [];
-  // Attach reserved port info directly to ports
+  const ppMeta = d.patchpanel || {};
+  const ppInstanceId = ppMeta.name || ppMeta.instance_id || "";
+
+  // Build reserved set from local state.changes (instant, no extra API call needed)
+  const reservedSet = _getReservedPortsForPanel(ppId, ppInstanceId);
+
+  // Also try backend endpoint as supplement
   try {
     const r = await apiJson(`${API_PP}/${ppId}/reserved-ports`);
-    const reservedSet = new Set(Array.isArray(r.reserved_ports) ? r.reserved_ports : []);
-    if (reservedSet.size > 0) {
-      ports._reservedPorts = reservedSet;
-    }
+    const backendReserved = Array.isArray(r.reserved_ports) ? r.reserved_ports : [];
+    backendReserved.forEach(lbl => reservedSet.add(lbl));
   } catch (_) {}
+
+  if (reservedSet.size > 0) {
+    ports._reservedPorts = reservedSet;
+  }
   return ports;
+}
+
+/** Extract reserved port labels for a patchpanel from the currently loaded kw_changes */
+function _getReservedPortsForPanel(ppDbId, ppInstanceId) {
+  const reserved = new Set();
+  if (!state.changes || !state.changes.length) return reserved;
+
+  for (const ch of state.changes) {
+    const st = String(ch.status || "").toLowerCase();
+    if (st === "done" || st === "canceled") continue;
+
+    const t = String(ch.type || "").toUpperCase();
+    const p = ch.payload_json || {};
+
+    if (t === "NEW_INSTALL") {
+      const line = p.new_line || p;
+      _collectReservedFromLine(line, ppDbId, ppInstanceId, reserved);
+    } else if (t === "LINE_MOVE") {
+      const nz = p.new_z || {};
+      _collectReservedFromLine(nz, ppDbId, ppInstanceId, reserved);
+    } else if (t === "PATH_MOVE") {
+      _collectReservedFromLine(p, ppDbId, ppInstanceId, reserved);
+    }
+  }
+  return reserved;
+}
+
+function _collectReservedFromLine(data, ppDbId, ppInstanceId, out) {
+  if (!data || typeof data !== "object") return;
+  const iid = String(ppInstanceId || "").trim();
+  const dbId = ppDbId ? Number(ppDbId) : null;
+
+  // Z-side
+  const zPP = String(data.customer_patchpanel_instance_id || "").trim();
+  const zPPId = data.customer_patchpanel_id != null ? Number(data.customer_patchpanel_id) : null;
+  const zPort = String(data.customer_port_label || "").trim();
+  if (zPort && ((iid && zPP === iid) || (dbId && zPPId === dbId))) {
+    out.add(zPort);
+  }
+
+  // A-side
+  const aPP = String(data.a_patchpanel_id || "").trim();
+  const aPort = String(data.a_port_label || "").trim();
+  if (aPort && iid && aPP === iid) {
+    out.add(aPort);
+  }
+
+  // BB IN
+  const bbIn = String(data.backbone_in_instance_id || "").trim();
+  const bbInPort = String(data.backbone_in_port_label || "").trim();
+  if (bbInPort && iid && bbIn === iid) {
+    out.add(bbInPort);
+  }
+
+  // BB OUT
+  const bbOut = String(data.backbone_out_instance_id || "").trim();
+  const bbOutPort = String(data.backbone_out_port_label || "").trim();
+  if (bbOutPort && iid && bbOut === iid) {
+    out.add(bbOutPort);
+  }
 }
 
 function populateRoomSelect(selectEl, rooms) {

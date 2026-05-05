@@ -226,11 +226,8 @@ async function loadSlot(slot,id){
     s.panel=d.patchpanel||null;
     s.ports=Array.isArray(d.ports)?d.ports:[];
     s.selectedPort=null;
-    // Fetch reserved ports for current KW
-    try{
-      const r=await api(`${API}/${id}/reserved-ports`);
-      s.reservedPorts=new Set(Array.isArray(r.reserved_ports)?r.reserved_ports:[]);
-    }catch(_){}
+    // Fetch reserved ports — try backend endpoint first, fallback to local calculation from kw_changes
+    s.reservedPorts=await _fetchReservedPortsForPanel(id, s.panel?.name || "");
     renderSlot(slot);
     updateDeinstallBtn();
   }catch(e){
@@ -826,6 +823,72 @@ async function doCreatePP(){
     await loadAll();
     await loadCustomers();
   }catch(e){toast(`Fehler: ${e.message}`,"error");}
+}
+
+/* ── reserved-port detection (yellow highlighting) ─────── */
+async function _fetchReservedPortsForPanel(ppDbId, ppInstanceId) {
+  const out = new Set();
+
+  // 1) Try backend endpoint
+  try {
+    const r = await api(`${API}/${ppDbId}/reserved-ports`);
+    const arr = Array.isArray(r.reserved_ports) ? r.reserved_ports : [];
+    arr.forEach(lbl => out.add(lbl));
+  } catch (_) {}
+
+  // 2) Also compute from kw_changes via API (all open plans)
+  try {
+    const KW_API = String(window.API_KW_PLANS_V2 || "/api/v1/kw_plans").replace(/\/+$/, "");
+    const KW_CHANGES_API = String(window.API_KW_CHANGES || "/api/v1/kw_changes").replace(/\/+$/, "");
+    const plans = await api(`${KW_API}?status=open,locked`);
+    const planList = Array.isArray(plans) ? plans : (plans.items || plans.plans || []);
+    for (const plan of planList) {
+      try {
+        const cd = await api(`${KW_CHANGES_API}?kw_plan_id=${plan.id}`);
+        const changes = Array.isArray(cd) ? cd : (cd.items || []);
+        for (const ch of changes) {
+          const st = String(ch.status || "").toLowerCase();
+          if (st === "done" || st === "canceled" || st === "cancelled") continue;
+          _extractReserved(ch, ppDbId, ppInstanceId, out);
+        }
+      } catch (_) {}
+    }
+  } catch (_) {}
+
+  return out;
+}
+
+function _extractReserved(ch, ppDbId, ppInstanceId, out) {
+  const t = String(ch.type || "").toUpperCase();
+  const p = ch.payload_json || {};
+  const iid = String(ppInstanceId || "").trim();
+  const dbId = ppDbId ? Number(ppDbId) : null;
+
+  let lines = [];
+  if (t === "NEW_INSTALL") lines.push(p.new_line || p);
+  else if (t === "LINE_MOVE") lines.push(p.new_z || {});
+  else if (t === "PATH_MOVE") lines.push(p);
+
+  for (const data of lines) {
+    if (!data || typeof data !== "object") continue;
+    // Z-side
+    const zPP = String(data.customer_patchpanel_instance_id || "").trim();
+    const zPPId = data.customer_patchpanel_id != null ? Number(data.customer_patchpanel_id) : null;
+    const zPort = String(data.customer_port_label || "").trim();
+    if (zPort && ((iid && zPP === iid) || (dbId && zPPId === dbId))) out.add(zPort);
+    // A-side
+    const aPP = String(data.a_patchpanel_id || "").trim();
+    const aPort = String(data.a_port_label || "").trim();
+    if (aPort && iid && aPP === iid) out.add(aPort);
+    // BB IN
+    const bbIn = String(data.backbone_in_instance_id || "").trim();
+    const bbInPort = String(data.backbone_in_port_label || "").trim();
+    if (bbInPort && iid && bbIn === iid) out.add(bbInPort);
+    // BB OUT
+    const bbOut = String(data.backbone_out_instance_id || "").trim();
+    const bbOutPort = String(data.backbone_out_port_label || "").trim();
+    if (bbOutPort && iid && bbOut === iid) out.add(bbOutPort);
+  }
 }
 
 /* ── top-level events ────────────────────────────────────── */
