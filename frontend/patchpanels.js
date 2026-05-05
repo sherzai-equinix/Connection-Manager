@@ -16,8 +16,8 @@ const S = {
   sidebarFilter: null,          // {cat:"BB"|"A"|"Z", room?:string}
   expandedCats:  new Set(["BB","A","Z"]),
   // detail slots  (A = primary,  B = compare)
-  slotA: { id:null, panel:null, ports:[], selectedPort:null, view:"grid" },
-  slotB: { id:null, panel:null, ports:[], selectedPort:null, view:"grid" },
+  slotA: { id:null, panel:null, ports:[], selectedPort:null, view:"grid", reservedPorts:new Set() },
+  slotB: { id:null, panel:null, ports:[], selectedPort:null, view:"grid", reservedPorts:new Set() },
   // create-modal
   customers: [],
   systemRacks: [],
@@ -216,7 +216,7 @@ function updateDeinstallBtn(){
 
 async function loadSlot(slot,id){
   const s=slot==="A"?S.slotA:S.slotB;
-  s.id=id; s.panel=null; s.ports=[]; s.selectedPort=null;
+  s.id=id; s.panel=null; s.ports=[]; s.selectedPort=null; s.reservedPorts=new Set();
   renderCards();
   showDetailZone();
   const container=$(`ppDetail${slot}`);
@@ -226,6 +226,11 @@ async function loadSlot(slot,id){
     s.panel=d.patchpanel||null;
     s.ports=Array.isArray(d.ports)?d.ports:[];
     s.selectedPort=null;
+    // Fetch reserved ports for current KW
+    try{
+      const r=await api(`${API}/${id}/reserved-ports`);
+      s.reservedPorts=new Set(Array.isArray(r.reserved_ports)?r.reserved_ports:[]);
+    }catch(_){}
     renderSlot(slot);
     updateDeinstallBtn();
   }catch(e){
@@ -235,10 +240,10 @@ async function loadSlot(slot,id){
 
 function closeSlot(slot){
   const s=slot==="A"?S.slotA:S.slotB;
-  s.id=null; s.panel=null; s.ports=[]; s.selectedPort=null;
+  s.id=null; s.panel=null; s.ports=[]; s.selectedPort=null; s.reservedPorts=new Set();
   if(slot==="A" && S.slotB.id){
     Object.assign(S.slotA, {...S.slotB});
-    S.slotB={id:null,panel:null,ports:[],selectedPort:null,view:"grid"};
+    S.slotB={id:null,panel:null,ports:[],selectedPort:null,view:"grid",reservedPorts:new Set()};
   }
   showDetailZone();
   renderCards();
@@ -269,7 +274,8 @@ function renderSlot(slot){
   const p=s.panel, ports=s.ports;
   const total=p.ports_total||ports.length;
   const occ=ports.filter(x=>x.is_occupied).length;
-  const free=ports.filter(x=>x.status==="free"&&!x.is_occupied).length;
+  const resCount=s.reservedPorts?s.reservedPorts.size:0;
+  const free=ports.filter(x=>x.status==="free"&&!x.is_occupied).length - resCount;
   const nav=ports.filter(x=>x.status==="unavailable").length;
 
   c.innerHTML=`
@@ -281,8 +287,9 @@ function renderSlot(slot){
       <button class="pp-close-btn" data-slot="${slot}" title="Schließen">&times;</button>
     </div>
     <div class="pp-detail-stats">
-      <div class="pp-dstat free"><span class="pp-dstat-n">${free}</span><span class="pp-dstat-l">Frei</span></div>
+      <div class="pp-dstat free"><span class="pp-dstat-n">${free>=0?free:0}</span><span class="pp-dstat-l">Frei</span></div>
       <div class="pp-dstat occupied"><span class="pp-dstat-n">${occ}</span><span class="pp-dstat-l">Belegt</span></div>
+      ${resCount>0?`<div class="pp-dstat reserved"><span class="pp-dstat-n">${resCount}</span><span class="pp-dstat-l">Reserviert</span></div>`:""}
       ${nav>0?`<div class="pp-dstat unavailable"><span class="pp-dstat-n">${nav}</span><span class="pp-dstat-l">N/A</span></div>`:""}
     </div>
     <div class="pp-detail-toolbar">
@@ -331,8 +338,10 @@ function renderCassettes(slot){
         const port=pm.get(i)||{port_number:i,is_occupied:false,status:"free"};
         const lab=cassLabel(i);
         const occ=!!port.is_occupied, unav=String(port.status||"").toLowerCase()==="unavailable";
-        const cls=unav?"unavailable":(occ?"occupied":"free");
-        html+=`<button type="button" class="port-tile ${cls}" data-pn="${i}" data-slot="${slot}" title="Port ${lab} (#${i}) – ${unav?"n/a":(occ?"belegt":"frei")}"${unav?" disabled":""}>
+        const isReserved=s.reservedPorts&&s.reservedPorts.has(lab);
+        const cls=unav?"unavailable":(occ?"occupied":(isReserved?"reserved":"free"));
+        const stateLabel=unav?"n/a":(occ?"belegt":(isReserved?"reserviert":"frei"));
+        html+=`<button type="button" class="port-tile ${cls}" data-pn="${i}" data-slot="${slot}" title="Port ${lab} (#${i}) – ${stateLabel}"${unav?" disabled":""}>
           <span>${esc(lab)}</span><span class="dot"></span></button>`;
       }
       html+='</div></div>';
@@ -376,8 +385,10 @@ function renderCassettes(slot){
           const port=pm.get(pn)||{port_number:pn,is_occupied:false,status:"free"};
           const lab=cassLabel(pn);
           const occ=!!port.is_occupied, unav=String(port.status||"").toLowerCase()==="unavailable";
-          const cls=unav?"unavailable":(occ?"occupied":"free");
-          html+=`<button type="button" class="port-tile ${cls}" data-pn="${pn}" data-slot="${slot}" title="Port ${lab} (#${pn}) – ${unav?"n/a":(occ?"belegt":"frei")}"${unav?" disabled":""}>
+          const isReserved=s.reservedPorts&&s.reservedPorts.has(lab);
+          const cls=unav?"unavailable":(occ?"occupied":(isReserved?"reserved":"free"));
+          const stateLabel=unav?"n/a":(occ?"belegt":(isReserved?"reserviert":"frei"));
+          html+=`<button type="button" class="port-tile ${cls}" data-pn="${pn}" data-slot="${slot}" title="Port ${lab} (#${pn}) – ${stateLabel}"${unav?" disabled":""}>
             <span>${esc(lab)}</span><span class="dot"></span></button>`;
         }
         html+='</div></div>';

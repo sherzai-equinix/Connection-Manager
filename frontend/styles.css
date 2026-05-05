@@ -1605,10 +1605,12 @@ button.btn:disabled {
 .pp-dstat.free       { background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); }
 .pp-dstat.occupied   { background: rgba(239, 68, 68, 0.12);  border: 1px solid rgba(239, 68, 68, 0.3); }
 .pp-dstat.unavailable{ background: rgba(148, 163, 184, 0.1);  border: 1px solid rgba(148, 163, 184, 0.25); }
+.pp-dstat.reserved   { background: rgba(234, 179, 8, 0.12);  border: 1px solid rgba(234, 179, 8, 0.3); }
 .pp-dstat-n { font-size: 1.2rem; font-weight: 800; }
 .pp-dstat.free .pp-dstat-n       { color: #10b981; }
 .pp-dstat.occupied .pp-dstat-n   { color: #ef4444; }
 .pp-dstat.unavailable .pp-dstat-n{ color: #94a3b8; }
+.pp-dstat.reserved .pp-dstat-n   { color: #ca8a04; }
 .pp-dstat-l {
   font-size: 0.72rem;
   color: var(--muted);
@@ -1966,6 +1968,15 @@ button.btn:disabled {
 
 .port-tile.unavailable .dot {
   background: rgba(148, 163, 184, 0.5);
+}
+
+.port-tile.reserved {
+  border-color: rgba(234, 179, 8, 0.55);
+  background: rgba(234, 179, 8, 0.15);
+}
+
+.port-tile.reserved .dot {
+  background: rgba(234, 179, 8, 0.9);
 }
 
 .port-tile.selected {

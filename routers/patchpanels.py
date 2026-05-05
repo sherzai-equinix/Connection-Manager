@@ -962,3 +962,116 @@ def delete_patchpanel(
     )
     db.commit()
     return {"success": True, "deleted_id": pp_id, "instance_id": inst_id}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Reserved ports for current KW (from kw_changes with status planned/in_progress)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _current_iso_week() -> tuple[int, int]:
+    """Return (year, week_number) for the current ISO week."""
+    from datetime import date as _date
+    today = _date.today()
+    iso = today.isocalendar()
+    return iso[0], iso[1]
+
+
+@router.get("/patchpanels/{pp_id}/reserved-ports")
+def get_reserved_ports(
+    pp_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Return port labels on this patchpanel that are reserved (planned for
+    install/move in the current KW but not yet done)."""
+
+    panel = db.execute(
+        text("SELECT id, instance_id FROM patchpanel_instances WHERE id = :id LIMIT 1"),
+        {"id": int(pp_id)},
+    ).mappings().first()
+    if not panel:
+        raise HTTPException(status_code=404, detail="Patchpanel not found")
+
+    instance_id = str(panel["instance_id"] or "").strip()
+    year, kw = _current_iso_week()
+
+    # Find the kw_plan for the current week
+    plan_row = db.execute(
+        text("SELECT id FROM public.kw_plans WHERE year = :y AND kw = :k LIMIT 1"),
+        {"y": year, "k": kw},
+    ).mappings().first()
+
+    if not plan_row:
+        return {"success": True, "reserved_ports": []}
+
+    plan_id = int(plan_row["id"])
+
+    # Get all kw_changes for this plan that are not done/canceled
+    changes = db.execute(
+        text(
+            """
+            SELECT type, payload_json
+            FROM public.kw_changes
+            WHERE kw_plan_id = :pid
+              AND LOWER(status) NOT IN ('done', 'canceled', 'cancelled')
+            """
+        ),
+        {"pid": plan_id},
+    ).mappings().all()
+
+    reserved: set[str] = set()
+
+    for ch in changes:
+        ch_type = str(ch.get("type") or "").upper()
+        payload = ch.get("payload_json")
+        if not payload:
+            continue
+        if isinstance(payload, str):
+            import json as _json
+            try:
+                payload = _json.loads(payload)
+            except Exception:
+                continue
+
+        if ch_type == "NEW_INSTALL":
+            line = payload.get("new_line") or payload
+            _collect_reserved(line, instance_id, pp_id, reserved)
+        elif ch_type == "LINE_MOVE":
+            new_z = payload.get("new_z") or {}
+            _collect_reserved(new_z, instance_id, pp_id, reserved)
+        elif ch_type == "PATH_MOVE":
+            # path move may reference backbone ports
+            _collect_reserved(payload, instance_id, pp_id, reserved)
+
+    return {"success": True, "reserved_ports": sorted(reserved)}
+
+
+def _collect_reserved(data: dict, instance_id: str, pp_id: int, out: set):
+    """Extract port labels from payload data that reference the given patchpanel."""
+    if not data or not isinstance(data, dict):
+        return
+
+    # Z-side: customer_patchpanel_instance_id matches instance_id
+    z_pp = str(data.get("customer_patchpanel_instance_id") or "").strip()
+    z_pp_id = data.get("customer_patchpanel_id")
+    z_port = str(data.get("customer_port_label") or "").strip()
+    if z_port and (z_pp == instance_id or (z_pp_id is not None and int(z_pp_id) == pp_id if str(z_pp_id).isdigit() else False)):
+        out.add(z_port)
+
+    # A-side: a_patchpanel_id matches instance_id
+    a_pp = str(data.get("a_patchpanel_id") or "").strip()
+    a_port = str(data.get("a_port_label") or "").strip()
+    if a_port and a_pp == instance_id:
+        out.add(a_port)
+
+    # Backbone IN
+    bb_in_pp = str(data.get("backbone_in_instance_id") or "").strip()
+    bb_in_port = str(data.get("backbone_in_port_label") or "").strip()
+    if bb_in_port and bb_in_pp == instance_id:
+        out.add(bb_in_port)
+
+    # Backbone OUT
+    bb_out_pp = str(data.get("backbone_out_instance_id") or "").strip()
+    bb_out_port = str(data.get("backbone_out_port_label") or "").strip()
+    if bb_out_port and bb_out_pp == instance_id:
+        out.add(bb_out_port)
