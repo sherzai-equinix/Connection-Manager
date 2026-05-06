@@ -28,6 +28,7 @@ const state = {
   plans: [], selectedKw: "", changes: [], filtered: [],
   editing: null, editingInstall: null, editingLineMove: null, typeFilter: "NEW_INSTALL", statusFilter: "open",
   kwNavYear: new Date().getFullYear(), kwNavMonth: new Date().getMonth(),
+  restrictedNames: new Set(),
   // Caches
   _rooms: null, _ppByRoom: {},
   // ── Install form auto-fill state ──
@@ -157,6 +158,24 @@ function changeLogicalName(c) {
   const t = String(c.type || "").toUpperCase(), p = c.payload_json || {};
   if (t === "NEW_INSTALL") { const l = p.new_line || p; return l.logical_name || "-"; }
   return "-";
+}
+
+function changeCustomerName(c) {
+  const t = String(c.type || "").toUpperCase(), p = c.payload_json || {};
+  if (t === "NEW_INSTALL") { const l = p.new_line || p; return l.system_name || l.customer || ""; }
+  if (t === "DEINSTALL") { const snap = p.snapshot_before || {}; return snap.system_name || snap.customer || ""; }
+  if (t === "LINE_MOVE") { const snap = p.snapshot || {}; return snap.system_name || snap.customer || ""; }
+  if (t === "PATH_MOVE") { return p.line_a_customer || p.line_b_customer || ""; }
+  return "";
+}
+
+function restrictedIcon(ch) {
+  const name = changeCustomerName(ch).toLowerCase().trim();
+  if (!name || !state.restrictedNames.size) return "";
+  for (const rn of state.restrictedNames) {
+    if (name === rn.toLowerCase()) return '<span title="Kunde hat Zugangsbeschränkung" style="color:#f59e0b;margin-left:5px;font-size:.85rem;"><i class="fas fa-lock"></i></span>';
+  }
+  return "";
 }
 
 function looptestBadge(c) {
@@ -714,7 +733,7 @@ function renderChanges() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><button class="btn" data-action="expand" data-id="${ch.id}" style="padding:2px 7px;font-size:.8rem;" title="Details">&#9660;</button></td>
-      <td>${typePill(ch.type)}</td>
+      <td>${typePill(ch.type)}${restrictedIcon(ch)}</td>
       <td class="mono">${esc(changeTarget(ch))}</td>
       <td>${esc(changeLogicalName(ch))}</td>
       <td>${statusBadge(ch.status, ch.id)}</td>
@@ -815,8 +834,8 @@ async function loadChanges(kw) {
   if (!kw) { state.changes = []; renderChanges(); return; }
   const d = await apiJson(`${API_KW_CHANGES}?kw=${encodeURIComponent(kw)}`);
   state.changes = Array.isArray(d.items) ? d.items : [];
+  await loadAccessPanel();
   renderChanges();
-  loadAccessPanel();
 }
 
 /* ══════════════════════════════════════
@@ -2388,6 +2407,9 @@ async function loadAccessPanel() {
     const data = await apiJson(`${API_ACCESS}/kw/${plan.id}`);
     const restricted = data.restricted_customers || [];
     const requests = data.requests || [];
+
+    // Store restricted names for table icons
+    state.restrictedNames = new Set(restricted.map(c => c.name));
 
     if (!restricted.length) { panel.style.display = "none"; return; }
 
