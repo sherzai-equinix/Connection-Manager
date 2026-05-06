@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="styles.css" />
   <style>
     /* ── Admin-specific styles ── */
+    .main-content { overflow-y:auto !important; padding-top:18px !important; }
     .admin-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
     .admin-header h1 { font-size:1.35rem; margin:0; }
     .admin-header .subtitle { color:var(--muted,#64748b); font-size:0.85rem; margin-top:2px; }
@@ -243,12 +244,15 @@
               <button class="btn btn-sm" id="btnReloadAccess"><i class="fas fa-sync-alt"></i> Reload</button>
             </div>
             <p class="small muted mb-3">Hier kannst du festlegen, welche Kunden eine Zugangs-Anmeldung benötigen. In der Wochenplanung wird dann angezeigt, ob der Access bereits angefragt wurde.</p>
+            <div class="mb-3">
+              <input type="text" class="form-control form-control-sm" id="accessSearch" placeholder="Kunde suchen..." style="max-width:320px;" />
+            </div>
             <div class="table-responsive">
               <table class="table table-sm table-striped align-middle" id="accessTable">
                 <thead>
                   <tr>
-                    <th style="width:50px;">ID</th>
                     <th>Kundenname</th>
+                    <th style="width:200px; text-align:center;">Typ</th>
                     <th style="width:180px; text-align:center;">Zugangsbeschränkung</th>
                   </tr>
                 </thead>

@@ -529,38 +529,68 @@
 
   // ── Access Restrictions ──────────────────────────────────────────────────
 
+  var accessItems = [];
+
   async function loadAccessRestrictions() {
     var body = el('accessBody');
     var empty = el('accessEmpty');
     if (!body) return;
     try {
       var data = await apiJson(API + '/access-restrictions/customers');
-      var items = data.items || [];
-      if (!items.length) {
-        body.innerHTML = '';
-        if (empty) empty.style.display = 'block';
-        return;
-      }
-      if (empty) empty.style.display = 'none';
-      body.innerHTML = items.map(function (c) {
-        var checked = c.access_restricted ? 'checked' : '';
-        var badgeClass = c.access_restricted ? 'badge-active' : 'badge-inactive';
-        var badgeText = c.access_restricted ? 'Beschränkt' : 'Frei';
-        return '<tr>' +
-          '<td>' + c.id + '</td>' +
-          '<td class="fw-semibold">' + escHtml(c.name) + '</td>' +
-          '<td style="text-align:center;">' +
-            '<label class="d-inline-flex align-items-center gap-2" style="cursor:pointer;">' +
-              '<input type="checkbox" class="form-check-input" data-customer-id="' + c.id + '" ' + checked + ' onchange="window._toggleAccess(this)" />' +
-              '<span class="' + badgeClass + '" id="accessBadge-' + c.id + '">' + badgeText + '</span>' +
-            '</label>' +
-          '</td>' +
-          '</tr>';
-      }).join('');
+      accessItems = data.items || [];
+      renderAccessTable();
     } catch (e) {
       toast('Fehler beim Laden: ' + e.message, 'error');
     }
   }
+
+  function renderAccessTable() {
+    var body = el('accessBody');
+    var empty = el('accessEmpty');
+    if (!body) return;
+    var query = (el('accessSearch') ? el('accessSearch').value : '').toLowerCase().trim();
+    var filtered = accessItems;
+    if (query) {
+      filtered = accessItems.filter(function(c) { return c.name.toLowerCase().indexOf(query) !== -1; });
+    }
+    if (!filtered.length) {
+      body.innerHTML = '';
+      if (empty) empty.style.display = 'block';
+      if (empty && query) empty.innerHTML = '<i class="fas fa-search"></i> Kein Kunde gefunden für "' + escHtml(query) + '"';
+      return;
+    }
+    if (empty) empty.style.display = 'none';
+    body.innerHTML = filtered.map(function (c) {
+      var checked = c.access_restricted ? 'checked' : '';
+      var badgeClass = c.access_restricted ? 'badge-active' : 'badge-inactive';
+      var badgeText = c.access_restricted ? 'Beschränkt' : 'Frei';
+      var rtype = c.restriction_type || 'access_approval';
+      return '<tr>' +
+        '<td class="fw-semibold">' + escHtml(c.name) + '</td>' +
+        '<td style="text-align:center;">' +
+          '<select class="form-select form-select-sm" data-customer-id="' + c.id + '" onchange="window._changeRestrictionType(this)" style="width:auto;display:inline-block;font-size:.8rem;">' +
+            '<option value="access_approval"' + (rtype === 'access_approval' ? ' selected' : '') + '>Access Approval</option>' +
+            '<option value="specific_time"' + (rtype === 'specific_time' ? ' selected' : '') + '>Bestimmte Uhrzeit</option>' +
+            '<option value="announcement"' + (rtype === 'announcement' ? ' selected' : '') + '>Announcement</option>' +
+          '</select>' +
+        '</td>' +
+        '<td style="text-align:center;">' +
+          '<label class="d-inline-flex align-items-center gap-2" style="cursor:pointer;">' +
+            '<input type="checkbox" class="form-check-input" data-customer-id="' + c.id + '" ' + checked + ' onchange="window._toggleAccess(this)" />' +
+            '<span class="' + badgeClass + '" id="accessBadge-' + c.id + '">' + badgeText + '</span>' +
+          '</label>' +
+        '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  // Search handler
+  document.addEventListener('DOMContentLoaded', function() {
+    var searchInput = el('accessSearch');
+    if (searchInput) {
+      searchInput.addEventListener('input', renderAccessTable);
+    }
+  });
 
   window._toggleAccess = async function (checkbox) {
     var customerId = checkbox.dataset.customerId;
@@ -571,6 +601,10 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ access_restricted: restricted }),
       });
+      // Update local data
+      for (var i = 0; i < accessItems.length; i++) {
+        if (String(accessItems[i].id) === String(customerId)) accessItems[i].access_restricted = restricted;
+      }
       var badge = el('accessBadge-' + customerId);
       if (badge) {
         badge.className = restricted ? 'badge-active' : 'badge-inactive';
@@ -579,6 +613,25 @@
       toast(restricted ? 'Zugangsbeschränkung aktiviert' : 'Zugangsbeschränkung entfernt', 'success');
     } catch (e) {
       checkbox.checked = !restricted;
+      toast('Fehler: ' + e.message, 'error');
+    }
+  };
+
+  window._changeRestrictionType = async function (select) {
+    var customerId = select.dataset.customerId;
+    var rtype = select.value;
+    // Find current restricted state
+    var item = accessItems.find(function(c) { return String(c.id) === String(customerId); });
+    var restricted = item ? item.access_restricted : false;
+    try {
+      await apiJson(API + '/access-restrictions/customers/' + customerId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_restricted: restricted, restriction_type: rtype }),
+      });
+      if (item) item.restriction_type = rtype;
+      toast('Typ geändert: ' + rtype, 'success');
+    } catch (e) {
       toast('Fehler: ' + e.message, 'error');
     }
   };

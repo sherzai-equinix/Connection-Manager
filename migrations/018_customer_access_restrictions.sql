@@ -2,6 +2,7 @@
 -- Zugangsbeschränkungen pro Kunde + Access-Requests pro KW
 
 ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS access_restricted BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS restriction_type TEXT NOT NULL DEFAULT 'access_approval';
 
 CREATE TABLE IF NOT EXISTS public.kw_access_requests (
     id              BIGSERIAL PRIMARY KEY,

@@ -22,6 +22,9 @@ def _ensure_tables(db: Session) -> None:
     db.execute(text(
         "ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS access_restricted BOOLEAN NOT NULL DEFAULT FALSE"
     ))
+    db.execute(text(
+        "ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS restriction_type TEXT NOT NULL DEFAULT 'access_approval'"
+    ))
     db.execute(text("""
         CREATE TABLE IF NOT EXISTS public.kw_access_requests (
             id              BIGSERIAL PRIMARY KEY,
@@ -43,6 +46,7 @@ def _ensure_tables(db: Session) -> None:
 
 class ToggleRestrictionIn(BaseModel):
     access_restricted: bool
+    restriction_type: str | None = None
 
 
 class AccessRequestIn(BaseModel):
@@ -61,11 +65,11 @@ def list_customers_with_restriction(
     """List all customers with their access_restricted flag."""
     _ensure_tables(db)
     rows = db.execute(text(
-        "SELECT id, name, access_restricted FROM public.customers ORDER BY name ASC"
+        "SELECT id, name, access_restricted, restriction_type FROM public.customers ORDER BY name ASC"
     )).mappings().all()
     return {
         "items": [
-            {"id": int(r["id"]), "name": r["name"], "access_restricted": bool(r["access_restricted"])}
+            {"id": int(r["id"]), "name": r["name"], "access_restricted": bool(r["access_restricted"]), "restriction_type": r.get("restriction_type") or "access_approval"}
             for r in rows
         ]
     }
@@ -80,14 +84,17 @@ def toggle_customer_restriction(
 ):
     """Toggle access_restricted for a customer."""
     _ensure_tables(db)
-    result = db.execute(
-        text("UPDATE public.customers SET access_restricted = :val WHERE id = :cid"),
-        {"val": body.access_restricted, "cid": customer_id},
-    )
+    params = {"val": body.access_restricted, "cid": customer_id}
+    sql = "UPDATE public.customers SET access_restricted = :val"
+    if body.restriction_type is not None:
+        sql += ", restriction_type = :rtype"
+        params["rtype"] = body.restriction_type
+    sql += " WHERE id = :cid"
+    result = db.execute(text(sql), params)
     if result.rowcount == 0:
         raise HTTPException(status_code=404, detail="Customer not found")
     db.commit()
-    return {"ok": True, "customer_id": customer_id, "access_restricted": body.access_restricted}
+    return {"ok": True, "customer_id": customer_id, "access_restricted": body.access_restricted, "restriction_type": body.restriction_type}
 
 
 # ---------------------------------------------------------------------------
