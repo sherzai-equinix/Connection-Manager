@@ -173,7 +173,7 @@ function restrictedIcon(ch) {
   const name = changeCustomerName(ch).toLowerCase().trim();
   if (!name || !state.restrictedNames.size) return "";
   for (const rn of state.restrictedNames) {
-    if (name === rn.toLowerCase()) return '<span title="Kunde hat Zugangsbeschränkung" style="color:#f59e0b;margin-left:5px;font-size:.85rem;"><i class="fas fa-lock"></i></span>';
+    if (name === rn.toLowerCase()) return '<span title="Kunde hat Zugangsbeschränkung" style="color:#dc2626;margin-left:5px;font-size:.85rem;"><i class="fas fa-ban"></i></span>';
   }
   return "";
 }
