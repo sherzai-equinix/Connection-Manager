@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Connection Manager</title>
   <link rel="icon" type="image/png" href="logo.png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="styles.css" />
   <style>
     /* ── KW Planning specific styles ── */
@@ -406,6 +407,19 @@
     body.light-mode .kw-info-bar { background: #f8fafc; border-color: rgba(148,163,184,.2); }
     body.light-mode .kw-tooltip-wrap { background: #ffffff; border-color: rgba(148,163,184,.22); box-shadow: 0 8px 28px rgba(0,0,0,.08); color: #334155; }
     body.light-mode .kw-tooltip-wrap .tt-muted { color: #64748b; }
+
+    /* ── Access Restrictions Panel ── */
+    .access-row { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-radius:8px; margin-bottom:6px; background:rgba(245,158,11,.06); border:1px solid rgba(245,158,11,.15); }
+    .access-row.done { background:rgba(22,163,74,.06); border-color:rgba(22,163,74,.2); }
+    .access-customer { font-weight:600; font-size:.9rem; }
+    .access-badge { font-size:.75rem; padding:3px 10px; border-radius:6px; font-weight:600; }
+    .access-badge.pending { background:rgba(245,158,11,.15); color:#f59e0b; }
+    .access-badge.sent { background:rgba(22,163,74,.15); color:#4ade80; }
+    .access-actions { display:flex; gap:8px; align-items:center; }
+    body.light-mode .access-row { background:rgba(245,158,11,.04); border-color:rgba(245,158,11,.2); }
+    body.light-mode .access-row.done { background:rgba(22,163,74,.04); border-color:rgba(22,163,74,.2); }
+    body.light-mode .access-badge.pending { background:rgba(245,158,11,.1); color:#d97706; }
+    body.light-mode .access-badge.sent { background:rgba(22,163,74,.1); color:#16a34a; }
   </style>
 </head>
 <body class="kw-planning-page">
@@ -469,6 +483,15 @@
               <span class="action-icon">&#8644;</span> Path Move
             </button>
           </div>
+        </div>
+
+        <!-- ── Access Restrictions Panel ── -->
+        <div class="card" id="accessPanel" style="display:none;">
+          <div style="margin-bottom:10px;">
+            <div class="card-title" style="font-size:.95rem; margin:0 0 2px;"><i class="fas fa-lock" style="color:#f59e0b;margin-right:6px;"></i>Zugangsbeschränkungen für diese KW</div>
+            <div class="small muted">Kunden mit Zugangs-Restriktion. Klicke auf "Access anfragen" um zur Anmelde-App weitergeleitet zu werden.</div>
+          </div>
+          <div id="accessListKw"></div>
         </div>
 
         <!-- ── Filter Tabs + Table ── -->

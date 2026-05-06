@@ -968,14 +968,6 @@ def delete_patchpanel(
 # Reserved ports for current KW (from kw_changes with status planned/in_progress)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _current_iso_week() -> tuple[int, int]:
-    """Return (year, week_number) for the current ISO week."""
-    from datetime import date as _date
-    today = _date.today()
-    iso = today.isocalendar()
-    return iso[0], iso[1]
-
-
 @router.get("/patchpanels/{pp_id}/reserved-ports")
 def get_reserved_ports(
     pp_id: int = Path(..., ge=1),
@@ -983,7 +975,7 @@ def get_reserved_ports(
     current_user=Depends(get_current_user),
 ):
     """Return port labels on this patchpanel that are reserved (planned for
-    install/move in the current KW but not yet done)."""
+    install/move in ANY open/active KW plan but not yet done)."""
     import json as _json
 
     panel = db.execute(
@@ -994,30 +986,18 @@ def get_reserved_ports(
         raise HTTPException(status_code=404, detail="Patchpanel not found")
 
     instance_id = str(panel["instance_id"] or "").strip()
-    year, kw = _current_iso_week()
 
-    # Find the kw_plan for the current week
-    plan_row = db.execute(
-        text("SELECT id FROM public.kw_plans WHERE year = :y AND kw = :k LIMIT 1"),
-        {"y": year, "k": kw},
-    ).mappings().first()
-
-    if not plan_row:
-        return {"success": True, "reserved_ports": [], "debug_no_plan": True}
-
-    plan_id = int(plan_row["id"])
-
-    # Get all kw_changes for this plan that are not done/canceled
+    # Get ALL open kw_changes (not done/canceled) from ALL non-archived plans
     changes = db.execute(
         text(
             """
-            SELECT type, payload_json
-            FROM public.kw_changes
-            WHERE kw_plan_id = :pid
-              AND LOWER(COALESCE(status, 'planned')) NOT IN ('done', 'canceled', 'cancelled')
+            SELECT c.type, c.payload_json
+            FROM public.kw_changes c
+            JOIN public.kw_plans p ON p.id = c.kw_plan_id
+            WHERE LOWER(COALESCE(p.status, 'open')) NOT IN ('completed', 'archived')
+              AND LOWER(COALESCE(c.status, 'planned')) NOT IN ('done', 'canceled', 'cancelled')
             """
         ),
-        {"pid": plan_id},
     ).mappings().all()
 
     reserved: set[str] = set()

@@ -38,6 +38,7 @@ from routers.patchpanels import router as patchpanels_router
 from routers.historical_lines import router as historical_lines_router
 from routers.presence import router as presence_router
 from routers.troubleshooting import router as troubleshooting_router
+from routers.access_restrictions import router as access_restrictions_router
 
 
 # ------------------------------------------------------------
@@ -128,6 +129,9 @@ app.include_router(presence_router)
 
 # ✅ Troubleshooting (017)
 app.include_router(troubleshooting_router, dependencies=rbac_deps)
+
+# ✅ Access Restrictions (018)
+app.include_router(access_restrictions_router, dependencies=rbac_deps)
 
 # ------------------------------------------------------------
 # Alias: /cross_connects/export (Unterstrich-Version)

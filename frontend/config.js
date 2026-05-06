@@ -34,6 +34,10 @@
   window.API_IMPORT = origin;
   window.API_HISTORICAL = window.API_ROOT + "/historical-lines";
   window.API_TROUBLESHOOTING = window.API_ROOT + "/troubleshooting";
+  window.API_ACCESS_RESTRICTIONS = window.API_ROOT + "/access-restrictions";
+
+  // URL der Kollegen-App für Access-Anmeldung (hier anpassen!)
+  window.ACCESS_REQUEST_APP_URL = "https://PLACEHOLDER-KOLLEGEN-APP-URL.example.com";
 
   // Inject Authorization header into all fetch() calls if token exists.
   const _origFetch = window.fetch.bind(window);

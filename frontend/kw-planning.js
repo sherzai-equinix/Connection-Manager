@@ -816,6 +816,7 @@ async function loadChanges(kw) {
   const d = await apiJson(`${API_KW_CHANGES}?kw=${encodeURIComponent(kw)}`);
   state.changes = Array.isArray(d.items) ? d.items : [];
   renderChanges();
+  loadAccessPanel();
 }
 
 /* ══════════════════════════════════════
@@ -2368,5 +2369,76 @@ async function init() {
   try { await loadPlans(currentIsoKwLabel()); }
   catch(e) { toast(`Laden fehlgeschlagen: ${e.message}`, "error"); }
 }
+
+/* ══════════════════════════════════════
+   ACCESS RESTRICTIONS PANEL
+   ══════════════════════════════════════ */
+const API_ACCESS = String(window.API_ACCESS_RESTRICTIONS || `${window.API_ROOT || ""}/access-restrictions`).replace(/\/+$/, "");
+const ACCESS_APP_URL = window.ACCESS_REQUEST_APP_URL || "";
+
+async function loadAccessPanel() {
+  const panel = $("accessPanel");
+  const list = $("accessListKw");
+  if (!panel || !list) return;
+
+  const plan = state.plans.find(p => p.kw === state.selectedKw);
+  if (!plan) { panel.style.display = "none"; return; }
+
+  try {
+    const data = await apiJson(`${API_ACCESS}/kw/${plan.id}`);
+    const restricted = data.restricted_customers || [];
+    const requests = data.requests || [];
+
+    if (!restricted.length) { panel.style.display = "none"; return; }
+
+    panel.style.display = "block";
+    const requestedIds = new Set(requests.map(r => r.customer_id));
+
+    list.innerHTML = restricted.map(c => {
+      const done = requestedIds.has(c.id);
+      const req = requests.find(r => r.customer_id === c.id);
+      const dateStr = req ? new Date(req.requested_at).toLocaleString("de-DE", {day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "";
+      return `<div class="access-row ${done ? "done" : ""}">
+        <div>
+          <span class="access-customer">${esc(c.name)}</span>
+          ${done ? `<span class="small muted" style="margin-left:10px;">Gesendet: ${esc(dateStr)}</span>` : ""}
+        </div>
+        <div class="access-actions">
+          <span class="access-badge ${done ? "sent" : "pending"}">${done ? "✓ Access gesendet" : "⚠ Access nötig"}</span>
+          ${!done ? `<button class="btn btn-sm" onclick="window._openAccessApp(${c.id}, '${esc(c.name)}')" title="Zur Anmelde-App wechseln"><i class="fas fa-external-link-alt"></i> Access anfragen</button>` : `<button class="btn btn-sm" onclick="window._undoAccessRequest(${plan.id}, ${c.id})" title="Zurücksetzen"><i class="fas fa-undo"></i></button>`}
+        </div>
+      </div>`;
+    }).join("");
+  } catch (e) {
+    panel.style.display = "none";
+  }
+}
+
+window._openAccessApp = function(customerId, customerName) {
+  // Open colleague's app in new tab
+  if (ACCESS_APP_URL) {
+    window.open(ACCESS_APP_URL, "_blank");
+  } else {
+    toast("Access-App URL ist noch nicht konfiguriert (config.js → ACCESS_REQUEST_APP_URL)", "error");
+    return;
+  }
+  // Mark as sent
+  const plan = state.plans.find(p => p.kw === state.selectedKw);
+  if (!plan) return;
+  apiJson(`${API_ACCESS}/kw/${plan.id}/request`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ customer_id: customerId }),
+  }).then(() => {
+    toast(`Access für ${customerName} als gesendet markiert`, "success");
+    loadAccessPanel();
+  }).catch(e => toast(`Fehler: ${e.message}`, "error"));
+};
+
+window._undoAccessRequest = function(planId, customerId) {
+  apiJson(`${API_ACCESS}/kw/${planId}/request/${customerId}`, { method: "DELETE" })
+    .then(() => { toast("Zurückgesetzt", "success"); loadAccessPanel(); })
+    .catch(e => toast(`Fehler: ${e.message}`, "error"));
+};
 
 document.addEventListener("DOMContentLoaded", init);
