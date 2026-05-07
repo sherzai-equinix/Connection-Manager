@@ -22,6 +22,13 @@
     .hl-table .col-pp{min-width:70px;}
     .cell-sub{font-size:.78rem;color:var(--muted,#999);margin-top:2px;}
 
+    /* sticky header + scroll */
+    .hl-table-wrap{max-height:calc(100vh - 320px);overflow-y:auto;overflow-x:auto;border-radius:12px;}
+    .hl-table thead th{position:sticky;top:0;z-index:10;background:var(--card-bg,#1e1e2e);box-shadow:0 1px 0 var(--border,#333);}
+    .hl-table-wrap::-webkit-scrollbar{width:8px;height:8px;}
+    .hl-table-wrap::-webkit-scrollbar-thumb{background:var(--border,#444);border-radius:8px;}
+    .hl-table-wrap::-webkit-scrollbar-track{background:transparent;}
+
     /* expand detail */
     .detail-row td{padding:12px 14px !important;background:var(--card-bg,#1a1a2e);border-top:none;}
     .detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 24px;}
@@ -94,7 +101,7 @@
     body.light-mode .tab-btn{color:#94a3b8;}
     body.light-mode .tab-btn.active{color:#2563eb;border-bottom-color:#2563eb;}
     body.light-mode .tab-btn:hover:not(.active){color:#334155;}
-    body.light-mode .hl-table thead th{background:#f1f5f9 !important;color:#475569 !important;border-bottom-color:rgba(148,163,184,.22);}
+    body.light-mode .hl-table thead th{background:#f1f5f9 !important;color:#475569 !important;border-bottom-color:rgba(148,163,184,.22);box-shadow:0 1px 0 rgba(148,163,184,.22);}
     body.light-mode .hl-table tbody td{background:rgba(255,255,255,.65) !important;color:#1e293b;border-bottom-color:rgba(148,163,184,.12);}
     body.light-mode .hl-table tbody tr:hover td{background:rgba(59,130,246,.04) !important;}
     body.light-mode .expand-btn{color:#64748b;}
@@ -158,7 +165,7 @@
           <div id="listStatus" style="font-size:.82rem;color:var(--muted,#999);padding:2px 0;min-height:22px;"></div>
 
           <!-- Table -->
-          <div class="card" style="padding:0;overflow-x:auto;">
+          <div class="card hl-table-wrap" style="padding:0;">
             <table class="table-list-table hl-table" id="hlTable">
               <thead>
                 <tr>
