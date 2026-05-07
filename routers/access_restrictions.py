@@ -19,24 +19,36 @@ router = APIRouter(prefix=f"{settings.api_prefix}/access-restrictions", tags=["a
 # ---------------------------------------------------------------------------
 
 def _ensure_tables(db: Session) -> None:
+    # Ensure customers table exists
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS public.customers (
+            id   BIGSERIAL PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE
+        )
+    """))
     db.execute(text(
         "ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS access_restricted BOOLEAN NOT NULL DEFAULT FALSE"
     ))
     db.execute(text(
         "ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS restriction_type TEXT NOT NULL DEFAULT 'access_approval'"
     ))
-    db.execute(text("""
-        CREATE TABLE IF NOT EXISTS public.kw_access_requests (
-            id              BIGSERIAL PRIMARY KEY,
-            kw_plan_id      BIGINT NOT NULL REFERENCES public.kw_plans(id) ON DELETE CASCADE,
-            customer_id     BIGINT NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
-            requested_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            requested_by    BIGINT NULL,
-            CONSTRAINT uq_kw_access_customer UNIQUE (kw_plan_id, customer_id)
-        )
-    """))
-    db.execute(text("CREATE INDEX IF NOT EXISTS ix_kw_access_plan ON public.kw_access_requests(kw_plan_id)"))
-    db.execute(text("CREATE INDEX IF NOT EXISTS ix_kw_access_customer ON public.kw_access_requests(customer_id)"))
+    # kw_access_requests depends on kw_plans – only create if kw_plans exists
+    has_kw_plans = db.execute(text(
+        "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'kw_plans')"
+    )).scalar()
+    if has_kw_plans:
+        db.execute(text("""
+            CREATE TABLE IF NOT EXISTS public.kw_access_requests (
+                id              BIGSERIAL PRIMARY KEY,
+                kw_plan_id      BIGINT NOT NULL REFERENCES public.kw_plans(id) ON DELETE CASCADE,
+                customer_id     BIGINT NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
+                requested_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                requested_by    BIGINT NULL,
+                CONSTRAINT uq_kw_access_customer UNIQUE (kw_plan_id, customer_id)
+            )
+        """))
+        db.execute(text("CREATE INDEX IF NOT EXISTS ix_kw_access_plan ON public.kw_access_requests(kw_plan_id)"))
+        db.execute(text("CREATE INDEX IF NOT EXISTS ix_kw_access_customer ON public.kw_access_requests(customer_id)"))
     db.commit()
 
 
