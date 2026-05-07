@@ -170,15 +170,19 @@ function changeCustomerName(c) {
 }
 
 function restrictedIcon(ch) {
-  const name = changeCustomerName(ch).toLowerCase().trim();
-  if (!name || !state.restrictedNames.size) return "";
+  const rawName = changeCustomerName(ch).trim();
+  if (!rawName || !state.restrictedNames.size) return "";
+  // system_name can be "Room:Rack:Customer" or just "Customer"
+  const nameLower = rawName.toLowerCase();
+  const parts = rawName.split(":").map(p => p.trim().toLowerCase());
   for (const [rn, info] of state.restrictedNames) {
-    if (name === rn.toLowerCase()) {
+    const rnLower = rn.toLowerCase();
+    if (nameLower === rnLower || parts.includes(rnLower) || nameLower.includes(rnLower)) {
       const approved = info.approved;
       const color = approved ? "#22c55e" : "#dc2626";
-      const title = approved ? "Access gesendet" : `Restricted: ${info.type || "Access Approval"}`;
+      const title = approved ? "✓ Access gesendet" : `⚠ Restricted: ${(info.type || "access_approval").replace(/_/g, " ")}`;
       const custId = info.id;
-      return `<span class="restricted-badge ${approved ? "approved" : "pending"}" data-customer-id="${custId}" title="${esc(title)}" style="color:${color};margin-left:5px;font-size:.85rem;cursor:pointer;"><i class="fas fa-user-slash"></i></span>`;
+      return `<span class="restricted-badge ${approved ? "approved" : "pending"}" data-customer-id="${custId}" title="${esc(title)}" style="color:${color};margin-left:6px;font-size:.9rem;cursor:pointer;"><i class="fas fa-user-slash"></i></span>`;
     }
   }
   return "";
@@ -739,9 +743,9 @@ function renderChanges() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><button class="btn" data-action="expand" data-id="${ch.id}" style="padding:2px 7px;font-size:.8rem;" title="Details">&#9660;</button></td>
-      <td>${typePill(ch.type)}${restrictedIcon(ch)}</td>
+      <td>${typePill(ch.type)}</td>
       <td class="mono">${esc(changeTarget(ch))}</td>
-      <td>${esc(changeCustomerName(ch) || "-")}</td>
+      <td>${esc(changeCustomerName(ch) || "-")}${restrictedIcon(ch)}</td>
       <td>${esc(changeLogicalName(ch))}</td>
       <td>${statusBadge(ch.status, ch.id)}</td>
       <td class="small muted">${fmtDate(ch.created_at)}</td>
