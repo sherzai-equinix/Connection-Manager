@@ -743,7 +743,8 @@ function bindModalEvents(){
   /* step 3 */
   $("modalRU")?.addEventListener("input",e=>{S.modalData.rack_unit=Number(e.target.value)||1;updPrev();});
   $("modalPPNum")?.addEventListener("input",e=>{
-    S.modalData.pp_number=e.target.value.trim();updPrev();
+    S.modalData.pp_number=e.target.value.trim().replace(/^(?:PP[:.][^:]*:)*/i,"").replace(/^PP[:.] */i,"");
+    updPrev();
     if(S.modalData.pp_number) $("modalNext3")?.removeAttribute("disabled");
     else $("modalNext3")?.setAttribute("disabled","");
   });
