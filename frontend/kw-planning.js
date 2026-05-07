@@ -28,7 +28,7 @@ const state = {
   plans: [], selectedKw: "", changes: [], filtered: [],
   editing: null, editingInstall: null, editingLineMove: null, typeFilter: "NEW_INSTALL", statusFilter: "open",
   kwNavYear: new Date().getFullYear(), kwNavMonth: new Date().getMonth(),
-  restrictedNames: new Set(),
+  restrictedNames: new Map(),
   // Caches
   _rooms: null, _ppByRoom: {},
   // ── Install form auto-fill state ──
@@ -172,8 +172,14 @@ function changeCustomerName(c) {
 function restrictedIcon(ch) {
   const name = changeCustomerName(ch).toLowerCase().trim();
   if (!name || !state.restrictedNames.size) return "";
-  for (const rn of state.restrictedNames) {
-    if (name === rn.toLowerCase()) return '<span title="Kunde hat Zugangsbeschränkung" style="color:#dc2626;margin-left:5px;font-size:.85rem;"><i class="fas fa-ban"></i></span>';
+  for (const [rn, info] of state.restrictedNames) {
+    if (name === rn.toLowerCase()) {
+      const approved = info.approved;
+      const color = approved ? "#22c55e" : "#dc2626";
+      const title = approved ? "Access gesendet" : `Restricted: ${info.type || "Access Approval"}`;
+      const custId = info.id;
+      return `<span class="restricted-badge ${approved ? "approved" : "pending"}" data-customer-id="${custId}" title="${esc(title)}" style="color:${color};margin-left:5px;font-size:.85rem;cursor:pointer;"><i class="fas fa-user-slash"></i></span>`;
+    }
   }
   return "";
 }
@@ -2275,6 +2281,22 @@ function bindEvents() {
 
   /* ── Table action delegation ── */
   $("changesBody")?.addEventListener("click", ev => {
+    /* Restricted badge click → show type + open access app */
+    const rBadge = ev.target.closest(".restricted-badge");
+    if (rBadge) {
+      const custId = Number(rBadge.dataset.customerId);
+      if (!custId) return;
+      const info = [...state.restrictedNames.values()].find(v => v.id === custId);
+      if (!info) return;
+      if (info.approved) {
+        toast(`Access für diesen Kunden wurde bereits gesendet.`, "success");
+      } else {
+        const typeName = (info.type || "access_approval").replace(/_/g, " ");
+        toast(`Restriktion: ${typeName} – Weiterleitung zur Access-App…`, "info");
+        window._openAccessApp(custId, "");
+      }
+      return;
+    }
     /* Status badge click → toggle planned ↔ in_progress */
     const badge = ev.target.closest("[data-status-toggle]");
     if (badge) {
@@ -2399,13 +2421,16 @@ async function loadAccessPanel() {
     const restricted = data.restricted_customers || [];
     const requests = data.requests || [];
 
-    // Store restricted names for table icons
-    state.restrictedNames = new Set(restricted.map(c => c.name));
+    // Store restricted names as Map(name → {id, type, approved}) for table icons
+    const requestedIds = new Set(requests.map(r => r.customer_id));
+    state.restrictedNames = new Map();
+    for (const c of restricted) {
+      state.restrictedNames.set(c.name, { id: c.id, type: c.restriction_type || "access_approval", approved: requestedIds.has(c.id) });
+    }
 
     if (!restricted.length) { panel.style.display = "none"; return; }
 
     panel.style.display = "block";
-    const requestedIds = new Set(requests.map(r => r.customer_id));
 
     list.innerHTML = restricted.map(c => {
       const done = requestedIds.has(c.id);

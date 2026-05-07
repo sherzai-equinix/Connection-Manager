@@ -118,7 +118,7 @@ def get_access_requests_for_plan(
     """), {"pid": plan_id}).mappings().all()
 
     restricted = db.execute(text(
-        "SELECT id, name FROM public.customers WHERE access_restricted = TRUE ORDER BY name ASC"
+        "SELECT id, name, restriction_type FROM public.customers WHERE access_restricted = TRUE ORDER BY name ASC"
     )).mappings().all()
 
     return {
@@ -133,7 +133,7 @@ def get_access_requests_for_plan(
             for r in rows
         ],
         "restricted_customers": [
-            {"id": int(r["id"]), "name": r["name"]}
+            {"id": int(r["id"]), "name": r["name"], "restriction_type": r.get("restriction_type") or "access_approval"}
             for r in restricted
         ],
     }
