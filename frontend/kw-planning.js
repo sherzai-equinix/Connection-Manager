@@ -2418,6 +2418,20 @@ async function loadAccessPanel() {
   if (!panel || !list) return;
 
   const plan = state.plans.find(p => p.kw === state.selectedKw);
+
+  // Always load restricted customers list (independent of plan)
+  try {
+    const custData = await apiJson(`${API_ACCESS}/customers`);
+    const allCustomers = custData.items || [];
+    const restricted = allCustomers.filter(c => c.access_restricted);
+    state.restrictedNames = new Map();
+    for (const c of restricted) {
+      state.restrictedNames.set(c.name, { id: c.id, type: c.restriction_type || "access_approval", approved: false });
+    }
+  } catch (e) {
+    // Fallback: keep existing state
+  }
+
   if (!plan) { panel.style.display = "none"; return; }
 
   try {
@@ -2425,9 +2439,8 @@ async function loadAccessPanel() {
     const restricted = data.restricted_customers || [];
     const requests = data.requests || [];
 
-    // Store restricted names as Map(name → {id, type, approved}) for table icons
+    // Update Map with approval status from this KW
     const requestedIds = new Set(requests.map(r => r.customer_id));
-    state.restrictedNames = new Map();
     for (const c of restricted) {
       state.restrictedNames.set(c.name, { id: c.id, type: c.restriction_type || "access_approval", approved: requestedIds.has(c.id) });
     }
