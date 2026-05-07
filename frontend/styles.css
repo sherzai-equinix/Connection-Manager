@@ -2095,10 +2095,8 @@ body.migration-audit-page #auditTable td.actions {
 /* KW planning needs full vertical scroll for long workflow sections. */
 html.kw-planning-page,
 body.kw-planning-page {
-  height: auto !important;
-  min-height: 100% !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
+  height: 100% !important;
+  overflow: hidden !important;
 }
 
 /* Lock page scroll when a modal is open */
@@ -2108,9 +2106,8 @@ html.modal-open body {
 }
 
 body.kw-planning-page .page-wrap {
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  min-height: calc(100vh - var(--dock-zone-height) - var(--dock-separator-height));
+  overflow: hidden !important;
+  height: 100%;
 }
 body.kw-planning-page .page-wrap::-webkit-scrollbar { width: 7px; }
 body.kw-planning-page .page-wrap::-webkit-scrollbar-thumb { background: rgba(148,163,184,.35); border-radius: 4px; }
@@ -2118,10 +2115,10 @@ body.kw-planning-page .page-wrap::-webkit-scrollbar-thumb:hover { background: rg
 body.kw-planning-page .page-wrap::-webkit-scrollbar-track { background: rgba(255,255,255,.04); border-radius: 4px; }
 
 body.kw-planning-page .app-shell {
-  min-height: 100vh;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  overflow: visible !important;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden !important;
 }
 
 body.kw-planning-page .main-content,
@@ -2129,12 +2126,17 @@ body.kw-planning-page .main,
 body.kw-planning-page .content,
 body.kw-planning-page .page,
 body.kw-planning-page .kw-planning-container {
-  height: auto !important;
-  min-height: calc(100vh - var(--dock-zone-height) - var(--dock-separator-height));
+  height: 100% !important;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto !important;
   overflow-x: hidden !important;
   padding-bottom: 160px !important;
 }
+body.kw-planning-page .main-content::-webkit-scrollbar { width: 7px; }
+body.kw-planning-page .main-content::-webkit-scrollbar-thumb { background: rgba(148,163,184,.35); border-radius: 4px; }
+body.kw-planning-page .main-content::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,.55); }
+body.kw-planning-page .main-content::-webkit-scrollbar-track { background: rgba(255,255,255,.04); border-radius: 4px; }
 
 /* KW planning: constrain table scroll so it never hides behind bottom dock */
 body.kw-planning-page .table-scroll {
