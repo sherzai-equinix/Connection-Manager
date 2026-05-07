@@ -63,37 +63,61 @@ Base.metadata.create_all(bind=engine)
 # ------------------------------------------------------------
 def _fix_duplicate_pp_prefixes():
     from sqlalchemy import text as _t
-    with engine.begin() as conn:
-        for tbl, col in [
-            ("patchpanel_instances", "instance_id"),
-            ("patchpanel_instances", "pp_number"),
-            ("cross_connects", "customer_pp"),
-            ("kw_changes", "customer_pp"),
-            ("historical_lines", "z_side"),
-        ]:
-            try:
-                if col == "pp_number":
-                    # pp_number should be bare number like 1406994
-                    # Strip all PP:xxxx: prefixes
-                    conn.execute(_t(f"""
-                        UPDATE {tbl} SET {col} = regexp_replace({col}, '^(PP[:.][^:]*:)+', '', 'i')
-                        WHERE {col} ~* '^PP[.:]'
-                    """))
-                    # Also strip a remaining PP. or PP: without colon suffix
-                    conn.execute(_t(f"""
-                        UPDATE {tbl} SET {col} = regexp_replace({col}, '^PP[:.] *', '', 'i')
-                        WHERE {col} ~* '^PP[.:]'
-                    """))
-                else:
-                    # instance_id/customer_pp: keep first PP:rack: and strip duplicated PP:rack: segments
-                    # PP:0102:PP:0102:1406994 → PP:0102:1406994
-                    conn.execute(_t(f"""
-                        UPDATE {tbl}
-                        SET {col} = regexp_replace({col}, '^(PP:[^:]+:)(?:PP:[^:]+:)+', '\\1', 'i')
-                        WHERE {col} ~* '^PP:[^:]+:PP:'
-                    """))
-            except Exception:
-                pass  # table might not exist yet
+    # patchpanel_instances.instance_id – the main source of the duplicate
+    try:
+        with engine.begin() as conn:
+            conn.execute(_t("""
+                UPDATE patchpanel_instances
+                SET instance_id = regexp_replace(instance_id, '^(PP:[^:]+:)(?:PP:[^:]+:)+', '\\1', 'i')
+                WHERE instance_id ~* '^PP:[^:]+:PP:'
+            """))
+    except Exception:
+        pass
+
+    # patchpanel_instances.pp_number – strip all PP: prefixes to bare number
+    try:
+        with engine.begin() as conn:
+            conn.execute(_t("""
+                UPDATE patchpanel_instances
+                SET pp_number = regexp_replace(pp_number, '^(PP[:.][^:]*:)+', '', 'i')
+                WHERE pp_number ~* '^PP[.:]'
+            """))
+            conn.execute(_t("""
+                UPDATE patchpanel_instances
+                SET pp_number = regexp_replace(pp_number, '^PP[:.] *', '', 'i')
+                WHERE pp_number ~* '^PP[.:]'
+            """))
+    except Exception:
+        pass
+
+    # historical_lines.z_side
+    try:
+        with engine.begin() as conn:
+            conn.execute(_t("""
+                UPDATE historical_lines
+                SET z_side = regexp_replace(z_side, '^(PP:[^:]+:)(?:PP:[^:]+:)+', '\\1', 'i')
+                WHERE z_side ~* '^PP:[^:]+:PP:'
+            """))
+    except Exception:
+        pass
+
+    # kw_changes.payload_json contains customer_patchpanel_instance_id as JSONB
+    try:
+        with engine.begin() as conn:
+            conn.execute(_t("""
+                UPDATE kw_changes
+                SET payload_json = jsonb_set(
+                    payload_json,
+                    '{customer_patchpanel_instance_id}',
+                    to_jsonb(regexp_replace(
+                        payload_json->>'customer_patchpanel_instance_id',
+                        '^(PP:[^:]+:)(?:PP:[^:]+:)+', '\\1', 'i'
+                    ))
+                )
+                WHERE payload_json->>'customer_patchpanel_instance_id' ~* '^PP:[^:]+:PP:'
+            """))
+    except Exception:
+        pass
 
 _fix_duplicate_pp_prefixes()
 
