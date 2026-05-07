@@ -57,6 +57,35 @@ app = FastAPI(
 # ------------------------------------------------------------
 Base.metadata.create_all(bind=engine)
 
+# ------------------------------------------------------------
+# One-time fix: remove duplicate PP prefixes (PP:0102:PP.0102 → PP:0102:0102)
+# ------------------------------------------------------------
+def _fix_duplicate_pp_prefixes():
+    from sqlalchemy import text as _t
+    with engine.begin() as conn:
+        for tbl, col in [
+            ("patchpanel_instances", "instance_id"),
+            ("patchpanel_instances", "pp_number"),
+            ("cross_connects", "customer_pp"),
+            ("kw_changes", "customer_pp"),
+            ("historical_lines", "z_side"),
+        ]:
+            try:
+                if col == "pp_number":
+                    conn.execute(_t(f"""
+                        UPDATE {tbl} SET {col} = regexp_replace({col}, '^PP[.:]\s*', '', 'i')
+                        WHERE {col} ~* '^PP[.:]'
+                    """))
+                else:
+                    conn.execute(_t(f"""
+                        UPDATE {tbl} SET {col} = regexp_replace({col}, '^(PP:[^:]+):PP[.:]\s*', '\\1:', 'i')
+                        WHERE {col} ~* '^PP:[^:]+:PP[.:]'
+                    """))
+            except Exception:
+                pass  # table might not exist yet
+
+_fix_duplicate_pp_prefixes()
+
 def _cors_config():
     """CORS Defaults.
 

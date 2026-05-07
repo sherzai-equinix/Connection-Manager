@@ -30,7 +30,7 @@ async function fetchJSON(url, opts){
 
 // ----- helpers -----
 function ppFormat(pp){
-  const v = (pp || "").trim();
+  let v = (pp || "").trim().replace(/^PP[:.]\s*/i, "");
   if(/^\d+$/.test(v)) return String(Number(v)).padStart(2, "0");
   return v;
 }

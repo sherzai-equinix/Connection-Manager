@@ -746,7 +746,9 @@ def onboard_zside_customer(db: Session, payload: dict) -> dict:
         """), {"lid": location_id, "rack": rack_label}).mappings().first()
         rack_id = int(rk2["id"])
 
-    # 4) patchpanel instance_id
+    # 4) patchpanel instance_id – strip any PP: or PP. prefix from pp_label
+    import re as _re
+    pp_label = _re.sub(r'^(?:PP[:\.])\s*', '', pp_label, flags=_re.IGNORECASE).strip()
     instance_id = f"PP:{rack_label}:{pp_label}"
 
     # 5) create patchpanel + ports (uses your existing function)

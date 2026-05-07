@@ -309,6 +309,9 @@ def create_patchpanel(
             customer_id = r.scalar()
 
     # Build instance_id: PP:{rack}:{pp_number} /RU{rack_unit}
+    # Strip any existing PP: or PP. prefix to avoid duplication like PP:0102:PP.0102
+    if pp_number:
+        pp_number = re.sub(r'^(?:PP[:\.])\s*', '', pp_number, flags=re.IGNORECASE).strip()
     if pp_number and rack_label:
         instance_id = f"PP:{rack_label}:{pp_number}"
     elif pp_number:
