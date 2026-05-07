@@ -1375,6 +1375,50 @@ def create_kw_change_minimal(
         payload_json["new_line"] = line
         target_id = None
 
+        # ── Duplicate detection for NEW_INSTALL ──
+        switch_name = str(line.get("switch_name") or "").strip()
+        switch_port = str(line.get("switch_port") or "").strip()
+        cust_pp_id = line.get("customer_patchpanel_id")
+        cust_port = str(line.get("customer_port_label") or "").strip()
+
+        if switch_name and switch_port:
+            dup = db.execute(
+                text("""
+                    SELECT id FROM public.kw_changes
+                    WHERE kw_plan_id = :plan_id
+                      AND type = 'NEW_INSTALL'
+                      AND status IN ('planned', 'in_progress')
+                      AND payload_json->'new_line'->>'switch_name' = :sw_name
+                      AND payload_json->'new_line'->>'switch_port' = :sw_port
+                    LIMIT 1
+                """),
+                {"plan_id": int(plan["id"]), "sw_name": switch_name, "sw_port": switch_port},
+            ).first()
+            if dup:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Duplikat: Switch {switch_name} Port {switch_port} existiert bereits in dieser KW.",
+                )
+
+        if cust_pp_id and cust_port:
+            dup = db.execute(
+                text("""
+                    SELECT id FROM public.kw_changes
+                    WHERE kw_plan_id = :plan_id
+                      AND type = 'NEW_INSTALL'
+                      AND status IN ('planned', 'in_progress')
+                      AND (payload_json->'new_line'->>'customer_patchpanel_id')::text = :pp_id
+                      AND payload_json->'new_line'->>'customer_port_label' = :port
+                    LIMIT 1
+                """),
+                {"plan_id": int(plan["id"]), "pp_id": str(cust_pp_id), "port": cust_port},
+            ).first()
+            if dup:
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Duplikat: Kunden-PP Port {cust_port} ist bereits in dieser KW belegt.",
+                )
+
     elif change_type == "DEINSTALL":
         if not target_id:
             raise HTTPException(status_code=400, detail="DEINSTALL requires target_cross_connect_id")
@@ -1393,6 +1437,29 @@ def create_kw_change_minimal(
             raise HTTPException(status_code=400, detail="LINE_MOVE requires payload_json.new_z customer_patchpanel_id + customer_port_label")
 
         _assert_z_port_free(db, int(pp), port, exclude_line_id=target_id)
+
+        # ── Duplicate detection for LINE_MOVE Z-side ──
+        dup = db.execute(
+            text("""
+                SELECT id FROM public.kw_changes
+                WHERE kw_plan_id = :plan_id
+                  AND status IN ('planned', 'in_progress')
+                  AND (
+                    (type = 'LINE_MOVE' AND (payload_json->'new_z'->>'customer_patchpanel_id')::text = :pp_id
+                                         AND payload_json->'new_z'->>'customer_port_label' = :port)
+                    OR
+                    (type = 'NEW_INSTALL' AND (payload_json->'new_line'->>'customer_patchpanel_id')::text = :pp_id
+                                           AND payload_json->'new_line'->>'customer_port_label' = :port)
+                  )
+                LIMIT 1
+            """),
+            {"plan_id": int(plan["id"]), "pp_id": str(pp), "port": port},
+        ).first()
+        if dup:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Duplikat: Kunden-PP Port {port} ist bereits in dieser KW belegt.",
+            )
 
         # Snapshot current line state for detail view
         # Resolve customer name (same logic as _line_to_public)

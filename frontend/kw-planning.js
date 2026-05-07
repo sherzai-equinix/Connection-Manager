@@ -735,6 +735,7 @@ function renderChanges() {
       <td><button class="btn" data-action="expand" data-id="${ch.id}" style="padding:2px 7px;font-size:.8rem;" title="Details">&#9660;</button></td>
       <td>${typePill(ch.type)}${restrictedIcon(ch)}</td>
       <td class="mono">${esc(changeTarget(ch))}</td>
+      <td>${esc(changeCustomerName(ch) || "-")}</td>
       <td>${esc(changeLogicalName(ch))}</td>
       <td>${statusBadge(ch.status, ch.id)}</td>
       <td class="small muted">${fmtDate(ch.created_at)}</td>
@@ -748,7 +749,7 @@ function renderChanges() {
     body.appendChild(tr);
     const exp = document.createElement("tr");
     exp.className = "expand-row"; exp.id = `expand-${ch.id}`;
-    exp.innerHTML = `<td colspan="7" class="expand-cell">${renderDetail(ch)}</td>`;
+    exp.innerHTML = `<td colspan="8" class="expand-cell">${renderDetail(ch)}</td>`;
     body.appendChild(exp);
   }
 }
@@ -761,8 +762,6 @@ function renderDetail(ch) {
   if (t === "NEW_INSTALL") {
     const l = p.new_line || p;
     h += f("Serial", l.serial);
-    h += f("Kunde", l.system_name);
-    h += f("Status", ch.status);
     h += f("RFRA Switch", l.switch_name);
     h += f("RFRA Port", l.switch_port);
     h += f("A-Patchpanel", l.a_patchpanel_id);
@@ -771,13 +770,9 @@ function renderDetail(ch) {
     h += f("Z-Port", l.customer_port_label);
     h += f("BB IN", `${l.backbone_in_instance_id||"-"} / ${l.backbone_in_port_label||"-"}`);
     h += f("BB OUT", `${l.backbone_out_instance_id||"-"} / ${l.backbone_out_port_label||"-"}`);
-    if (l.product_id) h += f("Product ID", l.product_id);
-    if (l.logical_name) h += f("Logical Name", l.logical_name);
   } else if (t === "DEINSTALL") {
     const snap = p.snapshot_before || {};
     h += f("Serial", snap.serial || "-");
-    h += f("Kunde", snap.system_name || "-");
-    h += f("Status", ch.status);
     h += f("RFRA Switch", snap.switch_name);
     h += f("RFRA Port", snap.switch_port);
     h += f("A-Patchpanel", snap.a_patchpanel_id);
@@ -789,10 +784,7 @@ function renderDetail(ch) {
     if (p.reason) h += f("Grund", p.reason);
   } else if (t === "LINE_MOVE") {
     const oz = p.old_z||{}, nz = p.new_z||{}, snap = p.snapshot||{};
-    h += f("Leitung ID", ch.target_cross_connect_id);
     h += f("Serial", snap.serial || p.serial || "-");
-    h += f("Kunde", snap.customer || snap.system_name || "-");
-    h += f("Status", ch.status);
     h += f("RFRA Switch", snap.switch_name);
     h += f("RFRA Port", snap.switch_port);
     h += f("A-Patchpanel", snap.a_patchpanel_id);
@@ -811,7 +803,6 @@ function renderDetail(ch) {
   } else if (t === "PATH_MOVE") {
     h += f("Leitung A", p.line_a_serial || p.line_a_id);
     h += f("Leitung B", p.line_b_serial || p.line_b_id);
-    h += f("Status", ch.status);
     const a = p.line_a_old_bb||{}, b = p.line_b_old_bb||{};
     h += f("A BB IN (alt)", `${a.backbone_in_instance_id||"-"} / ${a.backbone_in_port_label||"-"}`);
     h += f("A BB OUT (alt)", `${a.backbone_out_instance_id||"-"} / ${a.backbone_out_port_label||"-"}`);

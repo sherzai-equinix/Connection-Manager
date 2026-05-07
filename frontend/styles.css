@@ -430,10 +430,10 @@ a:hover {
 .kw-planning-page .main-content {
   overflow-y: auto;
 }
-.kw-planning-page .main-content::-webkit-scrollbar { width: 6px; }
-.kw-planning-page .main-content::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
-.kw-planning-page .main-content::-webkit-scrollbar-thumb:hover { background: #777; }
-.kw-planning-page .main-content::-webkit-scrollbar-track { background: rgba(255,255,255,.05); border-radius: 4px; }
+.kw-planning-page .main-content::-webkit-scrollbar { width: 7px; }
+.kw-planning-page .main-content::-webkit-scrollbar-thumb { background: rgba(148,163,184,.35); border-radius: 4px; }
+.kw-planning-page .main-content::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,.55); }
+.kw-planning-page .main-content::-webkit-scrollbar-track { background: rgba(255,255,255,.04); border-radius: 4px; }
 
 /* Historical-Archive: allow vertical scrolling */
 .historical-archive-page .main-content {
@@ -2112,6 +2112,10 @@ body.kw-planning-page .page-wrap {
   overflow-x: hidden !important;
   min-height: calc(100vh - var(--dock-zone-height) - var(--dock-separator-height));
 }
+body.kw-planning-page .page-wrap::-webkit-scrollbar { width: 7px; }
+body.kw-planning-page .page-wrap::-webkit-scrollbar-thumb { background: rgba(148,163,184,.35); border-radius: 4px; }
+body.kw-planning-page .page-wrap::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,.55); }
+body.kw-planning-page .page-wrap::-webkit-scrollbar-track { background: rgba(255,255,255,.04); border-radius: 4px; }
 
 body.kw-planning-page .app-shell {
   min-height: 100vh;
@@ -2129,8 +2133,18 @@ body.kw-planning-page .kw-planning-container {
   min-height: calc(100vh - var(--dock-zone-height) - var(--dock-separator-height));
   overflow-y: auto !important;
   overflow-x: hidden !important;
-  padding-bottom: 140px !important;
+  padding-bottom: 160px !important;
 }
+
+/* KW planning: constrain table scroll so it never hides behind bottom dock */
+body.kw-planning-page .table-scroll {
+  max-height: calc(100vh - 320px);
+  overflow: auto;
+}
+body.kw-planning-page .table-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+body.kw-planning-page .table-scroll::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+body.kw-planning-page .table-scroll::-webkit-scrollbar-thumb:hover { background: #777; }
+body.kw-planning-page .table-scroll::-webkit-scrollbar-track { background: rgba(255,255,255,.05); border-radius: 4px; }
 
 /* ══════════════════════════════════════════════════════════
    COMPREHENSIVE LIGHT-MODE OVERRIDES
@@ -2153,6 +2167,14 @@ body.light-mode.kw-planning-page .main-content::-webkit-scrollbar-track,
 body.light-mode.historical-archive-page .main-content::-webkit-scrollbar-track {
   background: rgba(148, 163, 184, 0.08);
 }
+
+/* Light mode scrollbar for KW planning table + page-wrap */
+body.light-mode.kw-planning-page .page-wrap::-webkit-scrollbar-thumb { background: rgba(148,163,184,.4); }
+body.light-mode.kw-planning-page .page-wrap::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,.6); }
+body.light-mode.kw-planning-page .page-wrap::-webkit-scrollbar-track { background: rgba(148,163,184,.08); }
+body.light-mode.kw-planning-page .table-scroll::-webkit-scrollbar-thumb { background: rgba(148,163,184,.4); }
+body.light-mode.kw-planning-page .table-scroll::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,.6); }
+body.light-mode.kw-planning-page .table-scroll::-webkit-scrollbar-track { background: rgba(148,163,184,.08); }
 
 /* ── Override the dark !important migration-audit-page rules ── */
 body.light-mode.migration-audit-page,

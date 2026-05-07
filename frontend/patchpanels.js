@@ -670,8 +670,9 @@ function bindModalEvents(){
         if(!c.name.toLowerCase().includes(q)) continue;
         if(c.locations?.length){
           for(const loc of c.locations){
-            const rackPart=loc.racks?.map(r=>r.rack_label).join("/")||"";
-            const display=[loc.room,rackPart,c.name].filter(Boolean).join(":");
+            const rackCount=loc.racks?.length||0;
+            const rackHint=rackCount?` (${rackCount} Rack${rackCount>1?"s":""})`:"";
+            const display=`${c.name} – ${loc.room||"Kein Raum"}${rackHint}`;
             entries.push({id:c.id,name:c.name,display,loc_id:loc.id,room:loc.room,rack:loc.racks?.[0]?.rack_label||"",rack_id:loc.racks?.[0]?.id||null});
           }
         } else {
