@@ -58,7 +58,8 @@ app = FastAPI(
 Base.metadata.create_all(bind=engine)
 
 # ------------------------------------------------------------
-# One-time fix: remove duplicate PP prefixes (PP:0102:PP.0102 → PP:0102:0102)
+# One-time fix: remove duplicate PP prefixes
+# e.g. PP:0102:PP:0102:1406994 → PP:0102:1406994
 # ------------------------------------------------------------
 def _fix_duplicate_pp_prefixes():
     from sqlalchemy import text as _t
@@ -72,14 +73,24 @@ def _fix_duplicate_pp_prefixes():
         ]:
             try:
                 if col == "pp_number":
+                    # pp_number should be bare number like 1406994
+                    # Strip all PP:xxxx: prefixes
                     conn.execute(_t(f"""
-                        UPDATE {tbl} SET {col} = regexp_replace({col}, '^PP[.:]\s*', '', 'i')
+                        UPDATE {tbl} SET {col} = regexp_replace({col}, '^(PP[:.][^:]*:)+', '', 'i')
+                        WHERE {col} ~* '^PP[.:]'
+                    """))
+                    # Also strip a remaining PP. or PP: without colon suffix
+                    conn.execute(_t(f"""
+                        UPDATE {tbl} SET {col} = regexp_replace({col}, '^PP[:.] *', '', 'i')
                         WHERE {col} ~* '^PP[.:]'
                     """))
                 else:
+                    # instance_id/customer_pp: keep first PP:rack: and strip duplicated PP:rack: segments
+                    # PP:0102:PP:0102:1406994 → PP:0102:1406994
                     conn.execute(_t(f"""
-                        UPDATE {tbl} SET {col} = regexp_replace({col}, '^(PP:[^:]+):PP[.:]\s*', '\\1:', 'i')
-                        WHERE {col} ~* '^PP:[^:]+:PP[.:]'
+                        UPDATE {tbl}
+                        SET {col} = regexp_replace({col}, '^(PP:[^:]+:)(?:PP:[^:]+:)+', '\\1', 'i')
+                        WHERE {col} ~* '^PP:[^:]+:PP:'
                     """))
             except Exception:
                 pass  # table might not exist yet

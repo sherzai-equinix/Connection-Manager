@@ -30,7 +30,8 @@ async function fetchJSON(url, opts){
 
 // ----- helpers -----
 function ppFormat(pp){
-  let v = (pp || "").trim().replace(/^PP[:.]\s*/i, "");
+  // Strip all PP:xxxx: prefixes (e.g. PP:0102:PP:0102:1406994 → 1406994)
+  let v = (pp || "").trim().replace(/^(?:PP[:.][^:]*:)*/i, "").replace(/^PP[:.]\s*/i, "");
   if(/^\d+$/.test(v)) return String(Number(v)).padStart(2, "0");
   return v;
 }
