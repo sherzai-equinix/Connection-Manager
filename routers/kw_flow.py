@@ -1106,7 +1106,7 @@ def download_kw_report(
     # ── Sheet 1: Installation ──
     ws_inst = wb.active
     ws_inst.title = "Installation"
-    inst_headers = ["ID", "Serial", "Switch Name", "Switch Port",
+    inst_headers = ["Product ID", "Serial", "Switch Name", "Switch Port",
                     "A Patchpanel", "A Port",
                     "BB IN PP", "BB IN Port", "BB OUT PP", "BB OUT Port",
                     "Z Patchpanel", "Z Port", "Kunde", "Status",
@@ -1118,8 +1118,8 @@ def download_kw_report(
         p = c.get("payload_json") or {}
         l = p.get("new_line") or p
         inst_rows.append([
-            c["id"],
-            l.get("serial") or l.get("product_id") or "-",
+            l.get("product_id") or "-",
+            l.get("serial") or "-",
             l.get("switch_name") or "-",
             l.get("switch_port") or "-",
             l.get("a_patchpanel_id") or "-",
@@ -1139,8 +1139,11 @@ def download_kw_report(
 
     # ── Sheet 2: Deinstallation ──
     ws_deinst = wb.create_sheet("Deinstallation")
-    deinst_headers = ["ID", "Leitung ID", "Serial (vorher)", "Kunde (vorher)", "Grund", "Status",
-                      "Erstellt", "Abgeschlossen"]
+    deinst_headers = ["Product ID", "Serial", "Switch Name", "Switch Port",
+                      "A Patchpanel", "A Port",
+                      "BB IN PP", "BB IN Port", "BB OUT PP", "BB OUT Port",
+                      "Z Patchpanel", "Z Port", "Kunde",
+                      "Grund", "Status", "Erstellt", "Abgeschlossen"]
     deinst_rows = []
     for c in changes:
         if str(c.get("type") or "").upper() != "DEINSTALL":
@@ -1148,9 +1151,18 @@ def download_kw_report(
         p = c.get("payload_json") or {}
         snap = p.get("snapshot_before") or {}
         deinst_rows.append([
-            c["id"],
-            c.get("target_cross_connect_id") or "-",
-            snap.get("serial") or "-",
+            snap.get("product_id") or "-",
+            snap.get("serial") or snap.get("serial_number") or "-",
+            snap.get("switch_name") or "-",
+            snap.get("switch_port") or "-",
+            snap.get("a_patchpanel_id") or "-",
+            snap.get("a_port_label") or "-",
+            snap.get("backbone_in_instance_id") or "-",
+            snap.get("backbone_in_port_label") or "-",
+            snap.get("backbone_out_instance_id") or "-",
+            snap.get("backbone_out_port_label") or "-",
+            snap.get("customer_patchpanel_instance_id") or snap.get("customer_patchpanel_id") or "-",
+            snap.get("customer_port_label") or "-",
             snap.get("system_name") or "-",
             p.get("reason") or "-",
             str(c.get("status") or "").lower(),
@@ -1161,7 +1173,7 @@ def download_kw_report(
 
     # ── Sheet 3: Line Move ──
     ws_lm = wb.create_sheet("Line Move")
-    lm_headers = ["ID", "Serial", "Leitung ID", "Alter Z PP", "Alter Z Port",
+    lm_headers = ["Product ID", "Serial", "Leitung ID", "Alter Z PP", "Alter Z Port",
                    "Neuer Z PP", "Neuer Z Port",
                    "Alter BB IN", "Alter BB OUT",
                    "Neuer BB IN", "Neuer BB OUT",
@@ -1176,7 +1188,7 @@ def download_kw_report(
         ob = p.get("old_bb") or {}
         snap = p.get("snapshot") or {}
         lm_rows.append([
-            c["id"],
+            snap.get("product_id") or "-",
             snap.get("serial") or "-",
             c.get("target_cross_connect_id") or "-",
             oz.get("customer_patchpanel_instance_id") or oz.get("customer_patchpanel_id") or "-",
@@ -1196,7 +1208,7 @@ def download_kw_report(
 
     # ── Sheet 4: Path Move ──
     ws_pm = wb.create_sheet("Path Move")
-    pm_headers = ["ID", "Leitung A Serial", "Leitung B Serial",
+    pm_headers = ["Product ID A", "Product ID B", "Leitung A Serial", "Leitung B Serial",
                    "A BB IN (alt)", "A BB OUT (alt)",
                    "B BB IN (alt)", "B BB OUT (alt)",
                    "Status", "Erstellt", "Abgeschlossen"]
@@ -1208,7 +1220,8 @@ def download_kw_report(
         a_bb = p.get("line_a_old_bb") or {}
         b_bb = p.get("line_b_old_bb") or {}
         pm_rows.append([
-            c["id"],
+            p.get("line_a_product_id") or "-",
+            p.get("line_b_product_id") or "-",
             p.get("line_a_serial") or str(p.get("line_a_id") or "-"),
             p.get("line_b_serial") or str(p.get("line_b_id") or "-"),
             f'{a_bb.get("backbone_in_instance_id", "-")}/{a_bb.get("backbone_in_port_label", "-")}',
