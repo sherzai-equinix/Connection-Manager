@@ -119,7 +119,11 @@ def get_access_requests_for_plan(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Get all access requests for a specific KW plan + list restricted customers."""
+    """Get access requests plus restricted customers affected by this KW plan.
+
+    Access is only needed when an open NEW_INSTALL in this KW targets a
+    Z-side customer patchpanel whose customer is marked as restricted.
+    """
     _ensure_tables(db)
     rows = db.execute(text("""
         SELECT ar.id, ar.customer_id, c.name AS customer_name, ar.requested_at, ar.requested_by
@@ -129,9 +133,53 @@ def get_access_requests_for_plan(
         ORDER BY c.name ASC
     """), {"pid": plan_id}).mappings().all()
 
-    restricted = db.execute(text(
-        "SELECT id, name, restriction_type FROM public.customers WHERE access_restricted = TRUE ORDER BY name ASC"
-    )).mappings().all()
+    restricted = db.execute(text("""
+        WITH install_targets AS (
+            SELECT DISTINCT
+                   c.id,
+                   c.name,
+                   c.restriction_type,
+                   pi.id AS patchpanel_id,
+                   pi.instance_id,
+                   COALESCE(NULLIF(pi.room, ''), NULLIF(pi.room_code, '')) AS room,
+                   pi.rack_label,
+                   pi.cage_no
+            FROM public.kw_changes kc
+            JOIN public.patchpanel_instances pi
+              ON pi.id = CASE
+                    WHEN COALESCE(
+                        kc.payload_json->'new_line'->>'customer_patchpanel_id',
+                        kc.payload_json->>'customer_patchpanel_id'
+                    ) ~ '^[0-9]+$'
+                    THEN COALESCE(
+                        kc.payload_json->'new_line'->>'customer_patchpanel_id',
+                        kc.payload_json->>'customer_patchpanel_id'
+                    )::BIGINT
+                    ELSE NULL
+                 END
+            JOIN public.customers c ON c.id = pi.customer_id
+            WHERE kc.kw_plan_id = :pid
+              AND kc.type = 'NEW_INSTALL'
+              AND LOWER(COALESCE(kc.status, 'planned')) IN ('planned', 'in_progress')
+              AND c.access_restricted = TRUE
+        )
+        SELECT
+            id,
+            name,
+            restriction_type,
+            jsonb_agg(
+                DISTINCT jsonb_build_object(
+                    'patchpanel_id', patchpanel_id,
+                    'instance_id', instance_id,
+                    'room', room,
+                    'rack_label', rack_label,
+                    'cage_no', cage_no
+                )
+            ) AS affected_patchpanels
+        FROM install_targets
+        GROUP BY id, name, restriction_type
+        ORDER BY name ASC
+    """), {"pid": plan_id}).mappings().all()
 
     return {
         "requests": [
@@ -145,7 +193,12 @@ def get_access_requests_for_plan(
             for r in rows
         ],
         "restricted_customers": [
-            {"id": int(r["id"]), "name": r["name"], "restriction_type": r.get("restriction_type") or "access_approval"}
+            {
+                "id": int(r["id"]),
+                "name": r["name"],
+                "restriction_type": r.get("restriction_type") or "access_approval",
+                "affected_patchpanels": r.get("affected_patchpanels") or [],
+            }
             for r in restricted
         ],
     }

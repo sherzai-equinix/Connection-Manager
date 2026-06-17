@@ -22,6 +22,22 @@ from models import (
 
 router = APIRouter()
 
+
+def _ensure_customer_access_columns(db: Session) -> None:
+    db.execute(text("""
+        CREATE TABLE IF NOT EXISTS public.customers (
+            id   BIGSERIAL PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE
+        )
+    """))
+    db.execute(text(
+        "ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS access_restricted BOOLEAN NOT NULL DEFAULT FALSE"
+    ))
+    db.execute(text(
+        "ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS restriction_type TEXT NOT NULL DEFAULT 'access_approval'"
+    ))
+    db.commit()
+
 # =========================================================
 # PATCHPANEL VIEW (Dropdown + Ports)
 # =========================================================
@@ -594,11 +610,14 @@ def customer_pp_lookup(instance_id: str = Query(...),
     """Lookup a patchpanel by instance_id → return customer name, room, DB id.
     Also returns the real customer room(s) (non-backbone) for BB routing.
     """
+    _ensure_customer_access_columns(db)
     iid = instance_id.strip()
     row = db.execute(text("""
         SELECT pi.id, pi.instance_id, pi.room, pi.customer_id,
                pi.rack_label, pi.cage_no, pi.room_code,
-               c.name AS customer_name
+               c.name AS customer_name,
+               COALESCE(c.access_restricted, FALSE) AS access_restricted,
+               c.restriction_type
         FROM patchpanel_instances pi
         LEFT JOIN customers c ON c.id = pi.customer_id
         WHERE pi.instance_id = :iid
@@ -626,6 +645,8 @@ def customer_pp_lookup(instance_id: str = Query(...),
         "room_code": row["room_code"],
         "customer_id": row["customer_id"],
         "customer_name": row["customer_name"],
+        "access_restricted": bool(row["access_restricted"]),
+        "restriction_type": row["restriction_type"] or "access_approval",
         "customer_rooms": cust_rooms,              # non-backbone rooms
         "existing_system_name": existing_sn,        # from active cross_connects
     }
@@ -635,10 +656,13 @@ def customer_pp_lookup(instance_id: str = Query(...),
 def patchpanel_search(q: str = Query(..., min_length=2),
                       db: Session = Depends(get_db)):
     """Search patchpanels by instance_id prefix. Returns with customer info."""
+    _ensure_customer_access_columns(db)
     rows = db.execute(text("""
         SELECT pi.id, pi.instance_id, pi.room, pi.customer_id,
                pi.rack_label, pi.cage_no, pi.room_code,
-               c.name AS customer_name
+               c.name AS customer_name,
+               COALESCE(c.access_restricted, FALSE) AS access_restricted,
+               c.restriction_type
         FROM patchpanel_instances pi
         LEFT JOIN customers c ON c.id = pi.customer_id
         WHERE pi.instance_id ILIKE :q
@@ -676,6 +700,8 @@ def patchpanel_search(q: str = Query(..., min_length=2),
                 "room_code": r["room_code"],
                 "customer_id": r["customer_id"],
                 "customer_name": r["customer_name"],
+                "access_restricted": bool(r["access_restricted"]),
+                "restriction_type": r["restriction_type"] or "access_approval",
                 "customer_rooms": cust_room_map.get(r["customer_id"], []),
                 "existing_system_name": sn_map.get(r["id"], None),
             }
@@ -856,6 +882,3 @@ def _room_norm_variants(room: str):
             seen.add(n)
             norms.append(n)
     return norms
-
-
-

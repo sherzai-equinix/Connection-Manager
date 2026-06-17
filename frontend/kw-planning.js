@@ -300,6 +300,13 @@ function _collectReservedFromLine(data, ppDbId, ppInstanceId, out) {
   }
 }
 
+function notifyRestrictedZSide(pp) {
+  if (!pp || !pp.access_restricted || !pp.customer_name) return;
+  const loc = [pp.room || pp.room_code, pp.rack_label, pp.cage_no].filter(Boolean).join(" / ");
+  const suffix = loc ? ` (${loc})` : "";
+  toast(`Access erforderlich: ${pp.customer_name}${suffix}`, "info");
+}
+
 function populateRoomSelect(selectEl, rooms) {
   selectEl.innerHTML = '<option value="">-- Raum waehlen --</option>';
   for (const r of rooms) {
@@ -832,7 +839,7 @@ async function loadPlans(preferredKw) {
 }
 
 async function loadChanges(kw) {
-  if (!kw) { state.changes = []; renderChanges(); return; }
+  if (!kw) { state.changes = []; state.restrictedNames = new Map(); renderChanges(); return; }
   const d = await apiJson(`${API_KW_CHANGES}?kw=${encodeURIComponent(kw)}`);
   state.changes = Array.isArray(d.items) ? d.items : [];
   await loadAccessPanel();
@@ -1377,6 +1384,7 @@ function niZPPInput() {
 async function niApplyZSideLookup(pp) {
   state.ni.zPPInstanceId = pp.instance_id;
   state.ni.zPPDbId = pp.db_id;
+  notifyRestrictedZSide(pp);
 
   // If existing system_name from cross_connects is available, use it directly
   const existingSN = pp.existing_system_name || "";
@@ -1924,6 +1932,7 @@ async function lmZPPBlur() {
 async function lmApplyZSideLookup(pp, preSelectPort) {
   state.lm.zPPInstanceId = pp.instance_id;
   state.lm.zPPDbId = pp.db_id;
+  notifyRestrictedZSide(pp);
 
   const existingSN = pp.existing_system_name || "";
   let customerRoom = "";
@@ -2418,19 +2427,7 @@ async function loadAccessPanel() {
   if (!panel || !list) return;
 
   const plan = state.plans.find(p => p.kw === state.selectedKw);
-
-  // Always load restricted customers list (independent of plan)
-  try {
-    const custData = await apiJson(`${API_ACCESS}/customers`);
-    const allCustomers = custData.items || [];
-    const restricted = allCustomers.filter(c => c.access_restricted);
-    state.restrictedNames = new Map();
-    for (const c of restricted) {
-      state.restrictedNames.set(c.name, { id: c.id, type: c.restriction_type || "access_approval", approved: false });
-    }
-  } catch (e) {
-    // Fallback: keep existing state
-  }
+  state.restrictedNames = new Map();
 
   if (!plan) { panel.style.display = "none"; return; }
 
@@ -2442,7 +2439,13 @@ async function loadAccessPanel() {
     // Update Map with approval status from this KW
     const requestedIds = new Set(requests.map(r => r.customer_id));
     for (const c of restricted) {
-      state.restrictedNames.set(c.name, { id: c.id, type: c.restriction_type || "access_approval", approved: requestedIds.has(c.id) });
+      const affected = Array.isArray(c.affected_patchpanels) ? c.affected_patchpanels : [];
+      state.restrictedNames.set(c.name, {
+        id: c.id,
+        type: c.restriction_type || "access_approval",
+        approved: requestedIds.has(c.id),
+        affected_patchpanels: affected,
+      });
     }
 
     if (!restricted.length) { panel.style.display = "none"; return; }
@@ -2453,10 +2456,16 @@ async function loadAccessPanel() {
       const done = requestedIds.has(c.id);
       const req = requests.find(r => r.customer_id === c.id);
       const dateStr = req ? new Date(req.requested_at).toLocaleString("de-DE", {day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "";
+      const affected = Array.isArray(c.affected_patchpanels) ? c.affected_patchpanels : [];
+      const ppContext = affected.map(pp => {
+        const loc = [pp.room, pp.rack_label, pp.cage_no].filter(Boolean).join(" / ");
+        return `${pp.instance_id || pp.patchpanel_id}${loc ? " (" + loc + ")" : ""}`;
+      }).join(", ");
       return `<div class="access-row ${done ? "done" : ""}">
         <div>
           <span class="access-customer">${esc(c.name)}</span>
           ${done ? `<span class="small muted" style="margin-left:10px;">Gesendet: ${esc(dateStr)}</span>` : ""}
+          ${ppContext ? `<div class="small muted" style="margin-top:4px;">Aus geplanter Installation: ${esc(ppContext)}</div>` : ""}
         </div>
         <div class="access-actions">
           <span class="access-badge ${done ? "sent" : "pending"}">${done ? "✓ Access gesendet" : "⚠ Access nötig"}</span>
