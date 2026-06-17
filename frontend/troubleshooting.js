@@ -740,7 +740,4 @@
   /* ── Init: load worklines from DB ── */
   dbLoadWorklines();
 
-  /* ── Presence ── */
-  if (window.setPresenceAction) window.setPresenceAction('Troubleshooting geoeffnet');
-
 })();

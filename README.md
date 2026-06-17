@@ -9,7 +9,7 @@ FastAPI-Backend + Vanilla-JS-Frontend zur Verwaltung von Netzwerkverbindungen, P
 | Service     | Image / Build       | Interner Port | Default Host-Port |
 |-------------|---------------------|---------------|--------------------|
 | **backend** | Build aus `Dockerfile` | 8000          | 8082               |
-| **db**      | `postgres:15`       | 5432          | (nur intern)       |
+| **db**      | `postgres:17`       | 5432          | (nur intern)       |
 | **pgadmin** | `dpage/pgadmin4`    | 80            | 5051 (optional)    |
 
 ---

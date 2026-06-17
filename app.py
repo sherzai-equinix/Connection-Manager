@@ -20,23 +20,14 @@ from sqlalchemy.orm import Session
 
 # Router Imports
 from routers.auth import router as auth_router
-from routers.devices import router as devices_router
-from routers.connections import router as connections_router
-from routers.precabling import router as precabling_router
 from routers.rackview import router as rackview_router
-from routers.zside import router as zside_router
 from routers.cross_connects import router as cross_connects_router
-from routers.jobs import router as jobs_router
 from routers.admin import router as admin_router
-from routers.topology import router as topology_router
-from routers.zside_lookup import router as zside_lookup_router
-from routers import importer
 from routers.migration_audit import router as migration_audit_router
 from routers.kw_planning import router as kw_planning_router
 from routers.kw_flow import router as kw_flow_router
 from routers.patchpanels import router as patchpanels_router
 from routers.historical_lines import router as historical_lines_router
-from routers.presence import router as presence_router
 from routers.troubleshooting import router as troubleshooting_router
 from routers.access_restrictions import router as access_restrictions_router
 
@@ -159,42 +150,19 @@ app.add_middleware(
 rbac_deps = [Depends(require_permissions_for_write("audit:write"))]
 
 app.include_router(auth_router)
-app.include_router(devices_router, prefix=settings.api_prefix, tags=["devices"], dependencies=rbac_deps)
-app.include_router(connections_router, prefix=settings.api_prefix, tags=["connections"], dependencies=rbac_deps)
-app.include_router(topology_router, prefix=settings.api_prefix, tags=["topology"], dependencies=rbac_deps)
-
-app.include_router(precabling_router, prefix=f"{settings.api_prefix}/precabling", tags=["precabling"], dependencies=rbac_deps)
 app.include_router(rackview_router, prefix=f"{settings.api_prefix}/rackview", tags=["rackview"], dependencies=rbac_deps)
-# zside_lookup_router provides helper endpoints like /patchpanels/{id}/ports.
-# These must live under the same API prefix as the frontend expects.
 app.include_router(patchpanels_router, dependencies=rbac_deps)
-app.include_router(zside_lookup_router, prefix=settings.api_prefix, tags=["zside-lookup"], dependencies=rbac_deps)
-app.include_router(importer.router, dependencies=rbac_deps)
 
-# zside hat schon eigene prefix routes in router-file (oder nicht),
-# also hier ohne prefix wie vorher
-app.include_router(zside_router, dependencies=rbac_deps)
-
-# ✅ cross-connects router hat prefix="/api/v1/cross-connects" schon im router-file
 app.include_router(cross_connects_router, dependencies=rbac_deps)
 
-# ✅ import-jobs (KW + Modus)
-app.include_router(jobs_router, dependencies=rbac_deps)
-
-# ✅ Migration Audit
 app.include_router(migration_audit_router, dependencies=rbac_deps)
 app.include_router(kw_planning_router, dependencies=rbac_deps)
 app.include_router(kw_flow_router, dependencies=rbac_deps)
 app.include_router(admin_router, dependencies=rbac_deps)
 app.include_router(historical_lines_router, dependencies=rbac_deps)
 
-# ✅ Live Presence (016) – kann sauber entfernt werden
-app.include_router(presence_router)
-
-# ✅ Troubleshooting (017)
 app.include_router(troubleshooting_router, dependencies=rbac_deps)
 
-# ✅ Access Restrictions (018)
 app.include_router(access_restrictions_router, dependencies=rbac_deps)
 
 # ------------------------------------------------------------
@@ -233,10 +201,6 @@ def root(current_user=Depends(get_current_user)):
         "version": "1.0.0",
         "docs": "/docs",
         "endpoints": {
-            "devices": f"{settings.api_prefix}/devices",
-            "connections": f"{settings.api_prefix}/connections",
-            "topology": f"{settings.api_prefix}/topology",
-            "precabling": f"{settings.api_prefix}/precabling/links",
             "rackview": f"{settings.api_prefix}/rackview/patchpanel-rooms",
             "cross_connects": f"{settings.api_prefix}/cross-connects",
             "kw_plans": f"{settings.api_prefix}/kw-plans",
@@ -244,7 +208,6 @@ def root(current_user=Depends(get_current_user)):
             "kw_changes_v2": f"{settings.api_prefix}/kw_changes",
             "dashboard": f"{settings.api_prefix}/dashboard/stats",
             "patchpanels": f"{settings.api_prefix}/patchpanels",
-            "zside": "/zside",
         },
     }
 
