@@ -263,13 +263,12 @@ function _updateCatBodyState(cat) {
   const body = el(`catBody${cat}`);
   const toggle = document.querySelector(`#catSection${cat} .audit-cat-toggle`);
   if (!body) return;
-  if (catCollapsed[cat]) {
-    body.classList.add('collapsed');
-    if (toggle) toggle.innerHTML = '&#9654;';
-  } else {
-    body.classList.remove('collapsed');
-    if (toggle) toggle.innerHTML = '&#9660;';
-  }
+  const collapsed = Boolean(catCollapsed[cat]);
+  body.hidden = collapsed;
+  body.classList.toggle('collapsed', collapsed);
+  if (toggle) toggle.innerHTML = collapsed ? '&#9654;' : '&#9660;';
+  const header = document.querySelector(`#catSection${cat} .audit-cat-header`);
+  if (header) header.setAttribute('aria-expanded', String(!collapsed));
 }
 
 const THEAD_HTML = `<tr>
