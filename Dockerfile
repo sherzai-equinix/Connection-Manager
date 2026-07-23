@@ -18,4 +18,6 @@ COPY frontend/ frontend/
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--proxy-headers"]
+# Presence and live cursors are held by this app instance. Keep one worker so
+# every connected colleague shares the same real-time collaboration hub.
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--proxy-headers"]

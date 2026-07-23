@@ -2505,4 +2505,18 @@ window._undoAccessRequest = function(planId, customerId) {
     .catch(e => toast(`Fehler: ${e.message}`, "error"));
 };
 
+let collaborationReloadInProgress = false;
+window.addEventListener("collaboration:data-changed", async () => {
+  if (collaborationReloadInProgress) return;
+  collaborationReloadInProgress = true;
+  try {
+    await loadPlans(state.selectedKw || currentIsoKwLabel());
+    toast("Live aktualisiert: Ein Kollege hat die KW-Planung geaendert.", "info");
+  } catch (e) {
+    toast(`Live-Aktualisierung fehlgeschlagen: ${e.message}`, "error");
+  } finally {
+    collaborationReloadInProgress = false;
+  }
+});
+
 document.addEventListener("DOMContentLoaded", init);

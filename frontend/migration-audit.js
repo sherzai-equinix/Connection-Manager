@@ -68,7 +68,8 @@ let currentView = "current"; // "current" = deduplicated, "all" = full history
 let allItems = [];
 let catItems = { 0: [], 1: [], 2: [] };
 let catPages = { 0: 1, 1: 1, 2: 1 };
-let catCollapsed = { 0: true, 1: false, 2: false };
+// Start with every audit category closed so users open only what they need.
+let catCollapsed = { 0: true, 1: true, 2: true };
 const auditFilters = { room:'', switch:'', bb_out_pp:'', serial:'', k_pp:'' };
 let _filterCol = '';
 let _filterModal = null;
@@ -1480,4 +1481,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   loadList().catch(err => toast(err.message));
   loadZsideStatus();
+
+  window.addEventListener("collaboration:data-changed", () => {
+    loadList().catch(err => toast(`Live-Aktualisierung fehlgeschlagen: ${err.message}`));
+  });
 });
