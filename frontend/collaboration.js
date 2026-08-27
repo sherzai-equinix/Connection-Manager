@@ -59,7 +59,7 @@
   function ensureUi() {
     if (document.getElementById("livePresence")) return;
 
-    const presence = document.createElement("aside");
+    const presence = document.createElement("div");
     presence.id = "livePresence";
     presence.className = "live-presence";
     presence.setAttribute("aria-label", "Aktive Kollegen auf dieser Seite");
@@ -87,7 +87,14 @@
     pointerLayer.className = "live-pointer-layer";
     pointerLayer.setAttribute("aria-hidden", "true");
 
-    document.body.append(pointerLayer, activity, presence);
+    document.body.append(pointerLayer, activity);
+    const bottomDock = document.querySelector(".bottom-dock");
+    if (bottomDock) {
+      presence.classList.add("live-presence-docked");
+      bottomDock.append(presence);
+    } else {
+      document.body.append(presence);
+    }
   }
 
   function setConnectionState(connected) {

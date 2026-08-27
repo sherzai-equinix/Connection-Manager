@@ -2539,6 +2539,20 @@ body.light-mode .alert-error {
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
   backdrop-filter: blur(16px);
 }
+.live-presence.live-presence-docked {
+  position: static;
+  z-index: auto;
+  min-height: 38px;
+  flex: 0 0 auto;
+  padding: 4px 10px 4px 7px;
+  background: rgba(14, 18, 25, 0.58);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.live-presence-docked .live-avatar {
+  width: 28px;
+  height: 28px;
+}
 .live-presence-status {
   width: 9px;
   height: 9px;
