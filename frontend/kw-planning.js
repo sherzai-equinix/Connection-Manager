@@ -331,6 +331,7 @@ function buildRestrictionIndexes(restrictedCustomers, requests) {
       id: Number(customer.id),
       name: customer.name || "Unbekannter Kunde",
       type: customer.restriction_type || "access_approval",
+      access_url: customer.access_url || "",
       approved: requestedIds.has(Number(customer.id)),
       affected_targets: Array.isArray(customer.affected_targets)
         ? customer.affected_targets
@@ -2481,8 +2482,8 @@ function bindEvents() {
         toast(`Access für diesen Kunden wurde bereits gesendet.`, "success");
       } else {
         const typeName = (info.type || "access_approval").replace(/_/g, " ");
-        toast(`Restriktion: ${typeName} – Weiterleitung zur Access-App…`, "info");
-        window._openAccessApp(custId, info.name);
+        toast(`Restriktion: ${typeName} – Kunden-Template wird geöffnet…`, "info");
+        window._openAccessTemplate(custId, info.name, info.access_url);
       }
       return;
     }
@@ -2644,6 +2645,7 @@ async function loadAccessPanel() {
         return `${type} #${pp.change_id}: ${pp.instance_id || pp.patchpanel_id}${loc ? " (" + loc + ")" : ""}`;
       }).join(", ");
       const restrictionMeta = restrictionTypeMeta(c.restriction_type);
+      const accessUrl = String(c.access_url || "").trim();
       return `<div class="access-row ${done ? "done" : ""}">
         <div>
           <span class="access-customer">${esc(c.name)}</span>
@@ -2653,14 +2655,19 @@ async function loadAccessPanel() {
         </div>
         <div class="access-actions">
           <span class="access-badge ${done ? "sent" : "pending"}">${done ? "✓ Access gesendet" : `⚠ ${esc(restrictionMeta.pending)}`}</span>
-          ${!done ? `<button class="btn btn-sm access-open-btn" data-customer-id="${c.id}" title="Zur Anmelde-App wechseln"><i class="fas fa-external-link-alt"></i> Details öffnen</button>` : `<button class="btn btn-sm access-undo-btn" data-plan-id="${plan.id}" data-customer-id="${c.id}" title="Zurücksetzen"><i class="fas fa-undo"></i></button>`}
+          <button class="btn btn-sm access-open-btn" data-customer-id="${c.id}" title="${accessUrl ? "Template in SharePoint öffnen" : "Template-Link im Admin hinterlegen"}" ${accessUrl ? "" : "disabled"}><i class="fas fa-external-link-alt"></i> Details öffnen</button>
+          ${!done ? `<button class="btn btn-sm btn-primary access-mark-btn" data-customer-id="${c.id}" title="Nach dem Outlook-Versand als gesendet markieren"><i class="fas fa-check"></i> Als gesendet markieren</button>` : `<button class="btn btn-sm access-undo-btn" data-plan-id="${plan.id}" data-customer-id="${c.id}" title="Zurücksetzen"><i class="fas fa-undo"></i></button>`}
         </div>
       </div>`;
     }).join("");
 
     list.querySelectorAll(".access-open-btn").forEach(btn => btn.addEventListener("click", () => {
       const info = state.restrictedCustomers.get(Number(btn.dataset.customerId));
-      if (info) window._openAccessApp(info.id, info.name);
+      if (info) window._openAccessTemplate(info.id, info.name, info.access_url);
+    }));
+    list.querySelectorAll(".access-mark-btn").forEach(btn => btn.addEventListener("click", () => {
+      const info = state.restrictedCustomers.get(Number(btn.dataset.customerId));
+      if (info) window._markAccessRequested(info.id, info.name);
     }));
     list.querySelectorAll(".access-undo-btn").forEach(btn => btn.addEventListener("click", () => {
       window._undoAccessRequest(Number(btn.dataset.planId), Number(btn.dataset.customerId));
@@ -2672,17 +2679,19 @@ async function loadAccessPanel() {
   }
 }
 
-window._openAccessApp = function(customerId, customerName) {
-  // Open colleague's app in new tab
-  const hasConfiguredAccessApp = ACCESS_APP_URL
-    && !/PLACEHOLDER|example\.com/i.test(ACCESS_APP_URL);
-  if (hasConfiguredAccessApp) {
-    window.open(ACCESS_APP_URL, "_blank");
-  } else {
-    toast("Access-App URL ist noch nicht konfiguriert (config.js → ACCESS_REQUEST_APP_URL)", "error");
+window._openAccessTemplate = function(customerId, customerName, customerAccessUrl) {
+  const fallbackUrl = ACCESS_APP_URL && !/PLACEHOLDER|example\.com/i.test(ACCESS_APP_URL)
+    ? ACCESS_APP_URL : "";
+  const accessUrl = String(customerAccessUrl || fallbackUrl).trim();
+  if (!/^https:\/\//i.test(accessUrl)) {
+    toast(`Kein Template-Link für ${customerName} hinterlegt.`, "error");
     return;
   }
-  // Mark as sent
+  window.open(accessUrl, "_blank", "noopener,noreferrer");
+  toast(`Template für ${customerName} geöffnet. Nach dem Versand bitte als gesendet markieren.`, "info");
+};
+
+window._markAccessRequested = function(customerId, customerName) {
   const plan = state.plans.find(p => p.kw === state.selectedKw);
   if (!plan) return;
   apiJson(`${API_ACCESS}/kw/${plan.id}/request`, {

@@ -415,7 +415,7 @@
     .access-badge { font-size:.75rem; padding:3px 10px; border-radius:6px; font-weight:600; }
     .access-badge.pending { background:rgba(245,158,11,.15); color:#f59e0b; }
     .access-badge.sent { background:rgba(22,163,74,.15); color:#4ade80; }
-    .access-actions { display:flex; gap:8px; align-items:center; }
+    .access-actions { display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap; }
     .access-kind { display:inline-flex; margin-left:8px; padding:2px 7px; border-radius:999px; font-size:.7rem; font-weight:700; background:rgba(245,158,11,.12); color:#fbbf24; }
     .type-access-wrap { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
     .restricted-badge { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; padding:0; border-radius:50%; cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
@@ -499,7 +499,7 @@
         <div class="card" id="accessPanel" style="display:none;">
           <div style="margin-bottom:10px;">
             <div class="card-title" style="font-size:.95rem; margin:0 0 2px;"><i class="fas fa-lock" style="color:#f59e0b;margin-right:6px;"></i>Zugangsbeschränkungen für diese KW</div>
-            <div class="small muted">Kunden mit Zugangs-Restriktion. Klicke auf "Access anfragen" um zur Anmelde-App weitergeleitet zu werden.</div>
+            <div class="small muted">Mit „Details öffnen“ das Kunden-Template aufrufen, in Outlook bearbeiten und versenden. Danach separat als gesendet markieren.</div>
           </div>
           <div id="accessListKw"></div>
         </div>

@@ -565,6 +565,7 @@
       var badgeClass = c.access_restricted ? 'badge-active' : 'badge-inactive';
       var badgeText = c.access_restricted ? 'Beschränkt' : 'Frei';
       var rtype = c.restriction_type || 'access_approval';
+      var accessUrl = c.access_url || '';
       return '<tr>' +
         '<td class="fw-semibold">' + escHtml(c.name) + '</td>' +
         '<td style="text-align:center;">' +
@@ -573,6 +574,12 @@
             '<option value="specific_time"' + (rtype === 'specific_time' ? ' selected' : '') + '>Bestimmte Uhrzeit</option>' +
             '<option value="announcement"' + (rtype === 'announcement' ? ' selected' : '') + '>Announcement</option>' +
           '</select>' +
+        '</td>' +
+        '<td>' +
+          '<div style="display:flex;gap:6px;align-items:center;">' +
+            '<input class="form-control form-control-sm" id="accessUrl-' + c.id + '" value="' + escHtml(accessUrl) + '" placeholder="https://..." title="SharePoint- oder Template-Link" />' +
+            '<button type="button" class="btn btn-sm" data-customer-id="' + c.id + '" onclick="window._saveAccessUrl(this)">Speichern</button>' +
+          '</div>' +
         '</td>' +
         '<td style="text-align:center;">' +
           '<label class="d-inline-flex align-items-center gap-2" style="cursor:pointer;">' +
@@ -632,6 +639,33 @@
       });
       if (item) item.restriction_type = rtype;
       toast('Typ geändert: ' + rtype, 'success');
+      try { localStorage.setItem('accessRestrictionsChangedAt', String(Date.now())); } catch (_) {}
+    } catch (e) {
+      toast('Fehler: ' + e.message, 'error');
+    }
+  };
+
+  window._saveAccessUrl = async function (button) {
+    var customerId = button.dataset.customerId;
+    var item = accessItems.find(function(c) { return String(c.id) === String(customerId); });
+    var input = el('accessUrl-' + customerId);
+    var accessUrl = input ? input.value.trim() : '';
+    if (accessUrl && accessUrl.toLowerCase().indexOf('https://') !== 0) {
+      toast('Der Template-Link muss mit https:// beginnen.', 'error');
+      return;
+    }
+    try {
+      await apiJson(API + '/access-restrictions/customers/' + customerId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          access_restricted: item ? item.access_restricted : false,
+          restriction_type: item ? item.restriction_type : 'access_approval',
+          access_url: accessUrl,
+        }),
+      });
+      if (item) item.access_url = accessUrl;
+      toast(accessUrl ? 'Template-Link gespeichert' : 'Template-Link entfernt', 'success');
       try { localStorage.setItem('accessRestrictionsChangedAt', String(Date.now())); } catch (_) {}
     } catch (e) {
       toast('Fehler: ' + e.message, 'error');

@@ -183,7 +183,32 @@ test("access API errors are visible instead of silently hiding the panel", () =>
   assert.match(frontendSource, /class="access-load-error"/);
 });
 
-test("placeholder access URL cannot falsely mark a request as sent", () => {
+test("opening the template and marking it sent are separate actions", () => {
   assert.match(frontendSource, /!\/PLACEHOLDER\|example\\\.com\/i\.test\(ACCESS_APP_URL\)/);
-  assert.match(frontendSource, /if \(hasConfiguredAccessApp\)/);
+  const openStart = frontendSource.indexOf("window._openAccessTemplate = function");
+  const markStart = frontendSource.indexOf("window._markAccessRequested = function", openStart);
+  const undoStart = frontendSource.indexOf("window._undoAccessRequest = function", markStart);
+  const openBlock = frontendSource.slice(openStart, markStart);
+  const markBlock = frontendSource.slice(markStart, undoStart);
+
+  assert.match(openBlock, /window\.open\(accessUrl/);
+  assert.doesNotMatch(openBlock, /\/request/);
+  assert.match(markBlock, /\/request/);
+  assert.match(frontendSource, /Als gesendet markieren/);
+});
+
+test("Susquehanna template URL is customer-specific and configurable", () => {
+  const backendSource = fs.readFileSync(
+    path.join(repoRoot, "routers", "access_restrictions.py"),
+    "utf8",
+  );
+  const adminSource = fs.readFileSync(
+    path.join(repoRoot, "frontend", "admin.js"),
+    "utf8",
+  );
+
+  assert.match(backendSource, /SUSQUEHANNA_ACCESS_TEMPLATE_URL/);
+  assert.match(backendSource, /ADD COLUMN IF NOT EXISTS access_url TEXT NULL/);
+  assert.match(backendSource, /Access template URL must use https:\/\//);
+  assert.match(adminSource, /_saveAccessUrl/);
 });

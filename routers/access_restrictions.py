@@ -13,6 +13,14 @@ from security import get_current_user
 
 router = APIRouter(prefix=f"{settings.api_prefix}/access-restrictions", tags=["access-restrictions"])
 
+SUSQUEHANNA_CUSTOMER_NAME = "FR2:OG:0512S1:Susquehanna International Securities Ltd"
+SUSQUEHANNA_ACCESS_TEMPLATE_URL = (
+    "https://equinixinc.sharepoint.com/sites/Germany-FileShare-04%20Ops-IBX-FR2/FR2/Forms/AllItems.aspx"
+    "?viewid=8d7ca311%2D3da1%2D4c84%2Dbc61%2Dc98401261bca&ct=1702968506944&or=Teams%2DHL&ga=1&LOF=1"
+    "&id=%2Fsites%2FGermany%2DFileShare%2D04%20Ops%2DIBX%2DFR2%2FFR2%2FCampus%2F03%20Dokumentation%2F3%2D03%20Kunden%2F3%2D02%20Access%20Restriction%2FZutrittsprozeduren%2FFormulare%5FTemplates%2FSUSQUEHANNA%2FAccess%20Request%20for%20FR2OG%2DM1A2OC%20%20FR2OG%2DM4%2E5OC%20FR2EG%2DM5%2E11OC%20FR2OG%2DM5%2E09OC%20FR20G002100%20FR203FLX303%20%20%20on%20the%20Date%2Emsg"
+    "&parent=%2Fsites%2FGermany%2DFileShare%2D04%20Ops%2DIBX%2DFR2%2FFR2%2FCampus%2F03%20Dokumentation%2F3%2D03%20Kunden%2F3%2D02%20Access%20Restriction%2FZutrittsprozeduren%2FFormulare%5FTemplates%2FSUSQUEHANNA"
+)
+
 
 # ---------------------------------------------------------------------------
 # Ensure tables exist
@@ -32,6 +40,18 @@ def _ensure_tables(db: Session) -> None:
     db.execute(text(
         "ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS restriction_type TEXT NOT NULL DEFAULT 'access_approval'"
     ))
+    db.execute(text(
+        "ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS access_url TEXT NULL"
+    ))
+    db.execute(text("""
+        UPDATE public.customers
+        SET access_url = :access_url
+        WHERE LOWER(BTRIM(name)) = LOWER(BTRIM(:customer_name))
+          AND NULLIF(BTRIM(access_url), '') IS NULL
+    """), {
+        "customer_name": SUSQUEHANNA_CUSTOMER_NAME,
+        "access_url": SUSQUEHANNA_ACCESS_TEMPLATE_URL,
+    })
     # kw_access_requests depends on kw_plans – only create if kw_plans exists
     has_kw_plans = db.execute(text(
         "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'kw_plans')"
@@ -59,6 +79,7 @@ def _ensure_tables(db: Session) -> None:
 class ToggleRestrictionIn(BaseModel):
     access_restricted: bool
     restriction_type: str | None = None
+    access_url: str | None = None
 
 
 class AccessRequestIn(BaseModel):
@@ -77,11 +98,11 @@ def list_customers_with_restriction(
     """List all customers with their access_restricted flag."""
     _ensure_tables(db)
     rows = db.execute(text(
-        "SELECT id, name, access_restricted, restriction_type FROM public.customers ORDER BY name ASC"
+        "SELECT id, name, access_restricted, restriction_type, access_url FROM public.customers ORDER BY name ASC"
     )).mappings().all()
     return {
         "items": [
-            {"id": int(r["id"]), "name": r["name"], "access_restricted": bool(r["access_restricted"]), "restriction_type": r.get("restriction_type") or "access_approval"}
+            {"id": int(r["id"]), "name": r["name"], "access_restricted": bool(r["access_restricted"]), "restriction_type": r.get("restriction_type") or "access_approval", "access_url": r.get("access_url") or ""}
             for r in rows
         ]
     }
@@ -101,12 +122,18 @@ def toggle_customer_restriction(
     if body.restriction_type is not None:
         sql += ", restriction_type = :rtype"
         params["rtype"] = body.restriction_type
+    if body.access_url is not None:
+        access_url = body.access_url.strip()
+        if access_url and not access_url.lower().startswith("https://"):
+            raise HTTPException(status_code=400, detail="Access template URL must use https://")
+        sql += ", access_url = :access_url"
+        params["access_url"] = access_url or None
     sql += " WHERE id = :cid"
     result = db.execute(text(sql), params)
     if result.rowcount == 0:
         raise HTTPException(status_code=404, detail="Customer not found")
     db.commit()
-    return {"ok": True, "customer_id": customer_id, "access_restricted": body.access_restricted, "restriction_type": body.restriction_type}
+    return {"ok": True, "customer_id": customer_id, "access_restricted": body.access_restricted, "restriction_type": body.restriction_type, "access_url": body.access_url}
 
 
 # ---------------------------------------------------------------------------
@@ -236,6 +263,7 @@ def get_access_requests_for_plan(
                 c.id,
                 c.name,
                 c.restriction_type,
+                c.access_url,
                 affected.change_id,
                 affected.change_type,
                 affected.target_role,
@@ -273,6 +301,7 @@ def get_access_requests_for_plan(
             id,
             name,
             restriction_type,
+            access_url,
             jsonb_agg(
                 DISTINCT jsonb_build_object(
                     'change_id', change_id,
@@ -289,7 +318,7 @@ def get_access_requests_for_plan(
                 )
             ) AS affected_targets
         FROM restricted_targets
-        GROUP BY id, name, restriction_type
+        GROUP BY id, name, restriction_type, access_url
         ORDER BY name ASC
     """), {"pid": plan_id}).mappings().all()
 
@@ -298,7 +327,7 @@ def get_access_requests_for_plan(
     # for a bounded fallback match against the customer name stored in the KW
     # change.  Only affected entries are displayed.
     all_restricted = db.execute(text("""
-        SELECT id, name, restriction_type
+        SELECT id, name, restriction_type, access_url
         FROM public.customers
         WHERE access_restricted = TRUE
         ORDER BY name ASC
@@ -320,6 +349,7 @@ def get_access_requests_for_plan(
                 "id": int(r["id"]),
                 "name": r["name"],
                 "restriction_type": r.get("restriction_type") or "access_approval",
+                "access_url": r.get("access_url") or "",
                 "affected_targets": r.get("affected_targets") or [],
                 # Kept for older frontend versions during a rolling deploy.
                 "affected_patchpanels": r.get("affected_targets") or [],
@@ -331,6 +361,7 @@ def get_access_requests_for_plan(
                 "id": int(r["id"]),
                 "name": r["name"],
                 "restriction_type": r.get("restriction_type") or "access_approval",
+                "access_url": r.get("access_url") or "",
             }
             for r in all_restricted
         ],
