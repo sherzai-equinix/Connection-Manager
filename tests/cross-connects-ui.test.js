@@ -30,7 +30,7 @@ const browserContext = {
 };
 vm.createContext(browserContext);
 vm.runInContext(
-  `${frontendSource}\nthis.__crossConnectUi = { aSideCell, zSideCell, detailHtml };`,
+  `${frontendSource}\nthis.__crossConnectUi = { aSideCell, zSideCell, detailHtml, customerText, formatCustomerDisplay };`,
   browserContext,
 );
 
@@ -93,4 +93,28 @@ test("active and archived lines expose the same BB IN and BB OUT orientation", (
 
   assert.match(activeBlock, /_swap_backbone_fields\(line\)/);
   assert.match(archiveBlock, /r = _swap_backbone_fields\(r\) or r/);
+});
+
+test("customer preview removes only a duplicated site and location prefix", () => {
+  const { formatCustomerDisplay } = browserContext.__crossConnectUi;
+
+  assert.equal(
+    formatCustomerDisplay("FR2:M5.12:FR2:EG-M5.12:S1:SUSQUEHANNA"),
+    "FR2:EG-M5.12:S1:SUSQUEHANNA",
+  );
+  assert.equal(
+    formatCustomerDisplay("FR2:M1A2:FR2:OG-M1A2:OC:DRW HOLDINGS"),
+    "FR2:OG-M1A2:OC:DRW HOLDINGS",
+  );
+  assert.equal(
+    formatCustomerDisplay("FR2:OG-M4.5:S1:TOWER RESEARCH CAPITAL"),
+    "FR2:OG-M4.5:S1:TOWER RESEARCH CAPITAL",
+  );
+});
+
+test("cross-connect header groups title, metrics, search and actions", () => {
+  assert.match(htmlSource, /class="card cc-hero"/);
+  assert.match(htmlSource, /class="cc-hero-stats" id="statStrip"/);
+  assert.match(htmlSource, /class="cc-search-box"/);
+  assert.match(htmlSource, /class="cc-controls"/);
 });

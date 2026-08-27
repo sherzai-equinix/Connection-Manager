@@ -7,12 +7,33 @@
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="stylesheet" href="styles.css" />
   <style>
-    .search-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-    .search-bar .input{flex:1 1 260px;min-width:200px;}
-    .search-bar .select{width:170px;flex-shrink:0;}
-    .stat-strip{display:flex;gap:18px;align-items:center;padding:6px 0;}
-    .stat-strip .stat-pill{background:var(--card-bg,#1e1e2e);border:1px solid var(--border,#333);border-radius:8px;padding:4px 14px;font-size:.85rem;display:flex;align-items:center;gap:6px;}
-    .stat-strip .stat-pill .val{font-weight:700;font-size:1rem;}
+    .cc-hero{position:relative;overflow:hidden;padding:18px;background:linear-gradient(135deg,rgba(59,130,246,.10),rgba(16,185,129,.045) 54%,rgba(148,163,184,.025));border-color:rgba(96,165,250,.2);}
+    .cc-hero::after{content:"";position:absolute;right:-90px;top:-150px;width:330px;height:330px;border-radius:50%;background:radial-gradient(circle,rgba(59,130,246,.14),transparent 68%);pointer-events:none;}
+    .cc-hero-top{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:22px;}
+    .cc-title-wrap{display:flex;align-items:center;gap:14px;min-width:0;}
+    .cc-title-icon{width:46px;height:46px;flex:0 0 auto;display:grid;place-items:center;border-radius:14px;background:linear-gradient(145deg,#2563eb,#0ea5a4);color:#fff;box-shadow:0 10px 24px rgba(37,99,235,.22);}
+    .cc-title-icon svg{width:25px;height:25px;}
+    .cc-eyebrow{margin-bottom:2px;color:#60a5fa;font-size:.69rem;font-weight:800;letter-spacing:.13em;text-transform:uppercase;}
+    .cc-title{margin:0;color:var(--heading,#fff);font-size:1.3rem;line-height:1.2;}
+    .cc-subtitle{margin-top:4px;color:var(--muted,#999);font-size:.82rem;}
+    .cc-hero-stats{display:flex;align-items:stretch;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
+    .cc-metric{min-width:92px;padding:8px 11px;border:1px solid var(--border,#333);border-radius:11px;background:rgba(15,23,42,.34);display:flex;flex-direction:column;gap:1px;}
+    .cc-metric-label{color:var(--muted,#999);font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;}
+    .cc-metric .val{color:var(--heading,#fff);font-size:1rem;font-weight:800;}
+    .cc-toolbar{position:relative;z-index:1;display:flex;align-items:center;gap:10px;margin-top:15px;padding-top:14px;border-top:1px solid var(--border,#333);}
+    .cc-search-box{position:relative;display:flex;align-items:center;flex:1 1 420px;min-width:240px;}
+    .cc-search-box svg{position:absolute;left:12px;width:16px;height:16px;color:var(--muted,#999);pointer-events:none;}
+    .cc-search-box .input{width:100%;padding-left:38px;background:rgba(15,23,42,.28);}
+    .cc-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+    .cc-filter{height:38px;display:flex;align-items:center;gap:8px;padding-left:11px;border:1px solid var(--border,#333);border-radius:10px;background:rgba(15,23,42,.28);}
+    .cc-filter span{color:var(--muted,#999);font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
+    .cc-filter .select{width:120px;height:36px;border:0;background:transparent;padding-left:4px;}
+    .cc-toolbar .btn{height:38px;white-space:nowrap;}
+    .cc-pinned{display:flex;align-items:center;gap:6px;}
+    .cc-list-head{min-height:42px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 14px;border-bottom:1px solid var(--border,#333);background:rgba(148,163,184,.025);}
+    .cc-list-status{display:flex;align-items:center;gap:8px;color:var(--muted,#999);font-size:.78rem;}
+    .cc-status-dot{width:7px;height:7px;border-radius:50%;background:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.12);}
+    .cc-list-hint{color:var(--muted,#999);font-size:.72rem;}
 
     /* table tweaks */
     .cc-table th,.cc-table td{padding:10px 12px;vertical-align:middle;}
@@ -38,6 +59,11 @@
     .expand-btn.open{transform:rotate(90deg);}
 
     @media (max-width:900px){
+      .cc-hero-top{align-items:flex-start;flex-direction:column;}
+      .cc-hero-stats{justify-content:flex-start;width:100%;}
+      .cc-toolbar{align-items:stretch;flex-direction:column;}
+      .cc-controls{justify-content:flex-start;}
+      .cc-list-hint{display:none;}
       .cc-table .col-kunde{width:auto;}
       .connection-path{grid-template-columns:1fr;}
       .path-arrow{transform:rotate(90deg);min-height:18px;}
@@ -72,7 +98,11 @@
     }
 
     /* ── Light Mode Overrides ── */
-    body.light-mode .stat-strip .stat-pill { background: #ffffff; border-color: rgba(148,163,184,.2); }
+    body.light-mode .cc-hero { background: linear-gradient(135deg,rgba(59,130,246,.075),rgba(16,185,129,.04) 54%,rgba(255,255,255,.55)); border-color: rgba(59,130,246,.18); }
+    body.light-mode .cc-metric,body.light-mode .cc-search-box .input,body.light-mode .cc-filter { background: rgba(255,255,255,.68); }
+    body.light-mode .cc-metric .val { color: #14241f; }
+    body.light-mode .cc-title { color: #14241f; }
+    body.light-mode .cc-list-head { background: rgba(237,243,240,.7); }
     body.light-mode .detail-row td { background: #f8fafc; }
     body.light-mode .cell-sub { color: #64748b; }
     body.light-mode .path-node { background: #ffffff; border-color: rgba(148,163,184,.25); }
@@ -94,38 +124,55 @@
     <div class="app-shell">
       <section class="main-content">
 
-        <!-- Toolbar -->
-        <div class="card">
-          <h1 class="card-title" style="margin-bottom:2px;">Cross Connects</h1>
-          <div class="card-subtitle" style="margin-bottom:10px;">Bestandsübersicht der Leitungen. Vorschau mit Kunde und A-/Z-Seite; der vollständige Backbone-Weg ist aufklappbar.</div>
+        <!-- Overview and toolbar -->
+        <div class="card cc-hero">
+          <div class="cc-hero-top">
+            <div class="cc-title-wrap">
+              <div class="cc-title-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1"/></svg>
+              </div>
+              <div>
+                <div class="cc-eyebrow">Leitungsbestand</div>
+                <h1 class="cc-title">Cross Connects</h1>
+                <div class="cc-subtitle">Kunde und Endpunkte sofort erfassen – den vollständigen Backbone-Weg bei Bedarf öffnen.</div>
+              </div>
+            </div>
 
-          <div class="search-bar">
-            <input id="searchInput" class="input" placeholder="Suche eingeben + Enter → Leitung wird oben angepinnt" autofocus />
-            <select id="statusFilter" class="select">
-              <option value="active" selected>Active</option>
-              <option value="deinstalled">Deinstalled</option>
-              <option value="all">Alle</option>
-            </select>
-            <button id="btnKwPlanning" class="btn btn-primary" onclick="location.href='kw-planning.html'">KW Planung</button>
-            <button id="btnExport" class="btn" title="Aktuelle Ansicht als Excel exportieren">&#x2B07; Export</button>
-            <button id="btnRefresh" class="btn">Aktualisieren</button>
+            <div class="cc-hero-stats" id="statStrip">
+              <div class="cc-metric"><span class="cc-metric-label">Angezeigt</span><span class="val" id="statShown">0</span></div>
+              <div class="cc-metric"><span class="cc-metric-label">Gesamt</span><span class="val" id="statTotal">0</span></div>
+              <div class="cc-metric" id="statFilterPill"><span class="cc-metric-label">Ansicht</span><span class="val" id="statFilter">Aktiv</span></div>
+              <div class="cc-pinned" id="pinnedInfo" style="display:none;">
+                <span class="pinned-badge">&#128204; Angepinnt: <span id="pinnedCount">0</span></span>
+                <button class="btn-clear-pins" id="btnClearPins" title="Alle Pins entfernen">Pins löschen</button>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <!-- Stat strip -->
-        <div class="stat-strip" id="statStrip">
-          <div class="stat-pill">Angezeigt <span class="val" id="statShown">0</span></div>
-          <div class="stat-pill">Gesamt <span class="val" id="statTotal">0</span></div>
-          <div class="stat-pill" id="statFilterPill">Filter <span class="val" id="statFilter">active</span></div>
-          <span id="pinnedInfo" style="display:none;">
-            <span class="pinned-badge">&#128204; Angepinnt: <span id="pinnedCount">0</span></span>
-            <button class="btn-clear-pins" id="btnClearPins" title="Alle Pins entfernen">Pins loeschen</button>
-          </span>
+          <div class="cc-toolbar">
+            <div class="cc-search-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+              <input id="searchInput" class="input" placeholder="Serial, Kunde, Switch, Rack oder Patchpanel suchen und Enter drücken" autofocus />
+            </div>
+            <div class="cc-controls">
+              <label class="cc-filter"><span>Status</span><select id="statusFilter" class="select">
+                <option value="active" selected>Aktiv</option>
+                <option value="deinstalled">Deinstalliert</option>
+                <option value="all">Alle</option>
+              </select></label>
+              <button id="btnKwPlanning" class="btn btn-primary" onclick="location.href='kw-planning.html'">KW Planung</button>
+              <button id="btnExport" class="btn" title="Aktuelle Ansicht als Excel exportieren">&#x2B07; Export</button>
+              <button id="btnRefresh" class="btn" title="Liste neu laden">&#8635; Aktualisieren</button>
+            </div>
+          </div>
         </div>
 
         <!-- Table -->
         <div class="card" style="padding:0;overflow:hidden;">
-          <div id="listStatus" class="small muted" style="display:flex;align-items:center;gap:8px;padding:10px 14px;"></div>
+          <div class="cc-list-head">
+            <div id="listStatus" class="cc-list-status"></div>
+            <div class="cc-list-hint">Zeile anklicken, um den Backbone-Weg zu öffnen</div>
+          </div>
           <div class="table-scroll">
             <table class="table-list-table table-list cc-table" id="ccTable">
               <thead>

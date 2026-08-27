@@ -36,7 +36,7 @@ function setStatus(msg, loading = false) {
   if (!b) return;
   b.innerHTML = loading
     ? `<span class="spinner"></span><span>${esc(msg)}</span>`
-    : esc(msg || "");
+    : (msg ? `<span class="cc-status-dot"></span><span>${esc(msg)}</span>` : "");
 }
 
 function badge(status) {
@@ -86,12 +86,23 @@ function zSideCell(item) {
   return sideCell(room, rack, pp, port);
 }
 
+function formatCustomerDisplay(value) {
+  const raw = String(value || "").trim();
+  const parts = raw.split(":").map((part) => part.trim()).filter(Boolean);
+  if (parts.length < 3) return raw;
+  const site = parts[0].toUpperCase();
+  const repeatedSite = parts.findIndex(
+    (part, index) => index > 0 && part.toUpperCase() === site
+  );
+  return repeatedSite > 0 ? parts.slice(repeatedSite).join(":") : raw;
+}
+
 function customerText(item) {
   // Prefer system_name with full format (contains ':')
   const sn = item.system_name || "";
-  if (sn && sn.includes(":")) return sn;
+  if (sn && sn.includes(":")) return formatCustomerDisplay(sn);
   // Fallback: customer field (may already be resolved by backend)
-  return (
+  return formatCustomerDisplay(
     item.customer ||
     item.system_name ||
     item.customer_base_name ||
@@ -195,7 +206,11 @@ function updateStats() {
   const f = $("statFilter");
   if (s) s.textContent = String(state.items.length);
   if (t) t.textContent = String(state.total);
-  if (f) f.textContent = $("statusFilter")?.value || "active";
+  if (f) {
+    const filterLabels = { active: "Aktiv", deinstalled: "Deinstalliert", all: "Alle" };
+    const filter = $("statusFilter")?.value || "active";
+    f.textContent = filterLabels[filter] || filter;
+  }
 
   /* Pinned info */
   const pinnedInfo = $("pinnedInfo");
