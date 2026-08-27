@@ -15,22 +15,33 @@
     .stat-strip .stat-pill .val{font-weight:700;font-size:1rem;}
 
     /* table tweaks */
-    .cc-table th,.cc-table td{padding:8px 10px;white-space:nowrap;}
-    .cc-table .col-serial{min-width:90px;}
-    .cc-table .col-kunde{min-width:110px;max-width:280px;white-space:normal;word-break:break-word;}
-    .cc-table .col-rfra{min-width:100px;}
-    .cc-table .col-aside,.cc-table .col-zside{min-width:130px;}
-    .cc-table .col-bb{min-width:100px;}
+    .cc-table th,.cc-table td{padding:10px 12px;vertical-align:middle;}
+    .cc-table .col-serial{width:130px;white-space:nowrap;}
+    .cc-table .col-kunde{width:30%;white-space:normal;word-break:break-word;}
+    .cc-table .col-aside{width:22%;}
+    .cc-table .col-zside{width:30%;}
+    .cc-table .col-status{width:110px;text-align:center;white-space:nowrap;}
     .cell-sub{font-size:.78rem;color:var(--muted,#999);margin-top:2px;}
+    .side-preview{min-width:0;}
+    .side-preview-main{font-weight:600;overflow-wrap:anywhere;}
 
     /* expand detail */
-    .detail-row td{padding:12px 14px !important;background:var(--card-bg,#1a1a2e);border-top:none;}
-    .detail-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px 24px;}
-    .detail-item{display:flex;flex-direction:column;gap:2px;}
-    .detail-label{font-size:.75rem;color:var(--muted,#999);text-transform:uppercase;letter-spacing:.04em;}
-    .detail-value{font-size:.9rem;font-weight:500;}
+    .detail-row td{padding:14px 18px !important;background:var(--card-bg,#1a1a2e);border-top:none;}
+    .connection-path{display:grid;grid-template-columns:minmax(180px,1fr) 34px minmax(180px,1fr) 34px minmax(180px,1fr);align-items:stretch;gap:10px;}
+    .path-node{display:flex;flex-direction:column;gap:5px;min-width:0;padding:12px 14px;border:1px solid var(--border,#333);border-radius:10px;background:rgba(148,163,184,.05);}
+    .path-node-kind{font-size:.72rem;color:var(--muted,#999);font-weight:700;text-transform:uppercase;letter-spacing:.05em;}
+    .path-node-name{font-size:.94rem;font-weight:700;overflow-wrap:anywhere;}
+    .path-node-port{font-size:.82rem;color:var(--muted,#999);}
+    .path-node-port strong{color:var(--text,#eee);font-size:.9rem;}
+    .path-arrow{display:flex;align-items:center;justify-content:center;color:var(--muted,#999);font-size:1.15rem;}
     .expand-btn{cursor:pointer;user-select:none;font-size:.8rem;width:22px;text-align:center;display:inline-block;transition:transform .15s;}
     .expand-btn.open{transform:rotate(90deg);}
+
+    @media (max-width:900px){
+      .cc-table .col-kunde{width:auto;}
+      .connection-path{grid-template-columns:1fr;}
+      .path-arrow{transform:rotate(90deg);min-height:18px;}
+    }
 
     /* ── Pinned row styling ── */
     .pinned-row { position: relative; }
@@ -64,7 +75,9 @@
     body.light-mode .stat-strip .stat-pill { background: #ffffff; border-color: rgba(148,163,184,.2); }
     body.light-mode .detail-row td { background: #f8fafc; }
     body.light-mode .cell-sub { color: #64748b; }
-    body.light-mode .detail-label { color: #64748b; }
+    body.light-mode .path-node { background: #ffffff; border-color: rgba(148,163,184,.25); }
+    body.light-mode .path-node-kind,body.light-mode .path-node-port,body.light-mode .path-arrow { color: #64748b; }
+    body.light-mode .path-node-port strong { color: #24332f; }
     body.light-mode .pinned-row td { background: rgba(59,130,246,.04) !important; }
     body.light-mode .pinned-badge { background: rgba(59,130,246,.06); color: #2563eb; border-color: rgba(59,130,246,.15); }
     body.light-mode .btn-clear-pins { background: rgba(239,68,68,.05); color: #dc2626; border-color: rgba(239,68,68,.15); }
@@ -84,7 +97,7 @@
         <!-- Toolbar -->
         <div class="card">
           <h1 class="card-title" style="margin-bottom:2px;">Cross Connects</h1>
-          <div class="card-subtitle" style="margin-bottom:10px;">Bestandsuebersicht aktiver Leitungen. Suche nach Serial, Kunde, RFRA Switch, Rack, PP&hellip;</div>
+          <div class="card-subtitle" style="margin-bottom:10px;">Bestandsübersicht der Leitungen. Vorschau mit Kunde und A-/Z-Seite; der vollständige Backbone-Weg ist aufklappbar.</div>
 
           <div class="search-bar">
             <input id="searchInput" class="input" placeholder="Suche eingeben + Enter → Leitung wird oben angepinnt" autofocus />
@@ -120,12 +133,9 @@
                   <th style="width:28px;"></th>
                   <th class="col-serial">Serial</th>
                   <th class="col-kunde">Kunde</th>
-                  <th class="col-rfra">RFRA Switch</th>
                   <th class="col-aside">A-Seite</th>
                   <th class="col-zside">Z-Seite</th>
-                  <th class="col-bb">BB IN</th>
-                  <th class="col-bb">BB OUT</th>
-                  <th>Status</th>
+                  <th class="col-status">Status</th>
                 </tr>
               </thead>
               <tbody id="ccTableBody"></tbody>

@@ -57,22 +57,14 @@ let _allItems = []; // master copy of full list (unfiltered)
 
 /* -------------------- cell renderers -------------------- */
 
-/** RFRA switch name + port */
-function rfraCell(item) {
-  const name = item.switch_name || "-";
-  const port = item.switch_port || "";
-  if (port) {
-    return `<span class="mono">${esc(name)}</span><div class="cell-sub">${esc(port)}</div>`;
-  }
-  return `<span class="mono">${esc(name)}</span>`;
-}
-
-/** Generic side cell: room / rack / pp / port on one line */
+/** Compact endpoint preview: patch panel first, location and port below. */
 function sideCell(room, rack, pp, port) {
-  const parts = [room, rack, pp].filter((x) => x && x !== "-");
-  if (port && port !== "-") parts.push(port);
-  const main = parts.length ? parts.join(" / ") : "-";
-  return `<span class="mono">${esc(main)}</span>`;
+  const location = [room, rack].filter((x) => x && x !== "-").join(" / ");
+  const main = pp && pp !== "-" ? pp : location || "-";
+  const meta = [location && main !== location ? location : "", port && port !== "-" ? `Port ${port}` : ""]
+    .filter(Boolean)
+    .join(" · ");
+  return `<div class="side-preview"><div class="side-preview-main mono">${esc(main)}</div>${meta ? `<div class="cell-sub">${esc(meta)}</div>` : ""}</div>`;
 }
 
 function aSideCell(item) {
@@ -94,10 +86,6 @@ function zSideCell(item) {
   return sideCell(room, rack, pp, port);
 }
 
-function bbCell(pp, port) {
-  return `<span class="mono">${esc(pp || "-")} / ${esc(port || "-")}</span>`;
-}
-
 function customerText(item) {
   // Prefer system_name with full format (contains ':')
   const sn = item.system_name || "";
@@ -116,52 +104,25 @@ function customerText(item) {
 /* -------------------- expandable detail row -------------------- */
 
 function detailHtml(item) {
-  function f(label, val) {
-    return `<div class="detail-item"><div class="detail-label">${esc(
-      label
-    )}</div><div class="detail-value">${esc(val || "-")}</div></div>`;
+  function pathNode(kind, name, port) {
+    return `<div class="path-node">
+      <div class="path-node-kind">${esc(kind)}</div>
+      <div class="path-node-name mono">${esc(name || "-")}</div>
+      <div class="path-node-port">Port <strong class="mono">${esc(port || "-")}</strong></div>
+    </div>`;
   }
 
-  const aPP = item.a_side?.pp || item.a_patchpanel_id || "-";
-  const aPort = item.a_side?.port || item.a_port_label || "-";
+  const bbInPP = item.bb_in?.pp || item.backbone_in_instance_id;
+  const bbInPort = item.bb_in?.port || item.backbone_in_port_label;
+  const bbOutPP = item.bb_out?.pp || item.backbone_out_instance_id;
+  const bbOutPort = item.bb_out?.port || item.backbone_out_port_label;
 
-  const zRoom = item.z_customer_room || item.z_side?.room || item.z_room || "-";
-  const zRack =
-    item.z_side?.rack || item.z_rack || item.rack_code || "-";
-  const zPP =
-    item.customer_patchpanel_instance_id ||
-    item.z_side?.pp ||
-    item.z_pp_number ||
-    "-";
-  const zPort = item.z_side?.port || item.customer_port_label || "-";
-
-  const bbInPP =
-    item.bb_in?.pp || item.backbone_in_instance_id || "-";
-  const bbInPort =
-    item.bb_in?.port || item.backbone_in_port_label || "-";
-  const bbOutPP =
-    item.bb_out?.pp || item.backbone_out_instance_id || "-";
-  const bbOutPort =
-    item.bb_out?.port || item.backbone_out_port_label || "-";
-
-  return `<div class="detail-grid">
-    ${f("Serial", item.serial)}
-    ${f("Kunde", customerText(item))}
-    ${f("Status", item.status)}
-    ${f("RFRA Switch", item.switch_name)}
-    ${f("RFRA Port", item.switch_port)}
-    ${f("A-Patchpanel", aPP)}
-    ${f("A-Port", aPort)}
-    ${f("Z-Room", zRoom)}
-    ${f("Z-Rack", zRack)}
-    ${f("Z-Patchpanel", zPP)}
-    ${f("Z-Port", zPort)}
-    ${f("BB IN", bbInPP + " / " + bbInPort)}
-    ${f("BB OUT", bbOutPP + " / " + bbOutPort)}
-    ${item.deinstalled_at ? f("Deinstalliert am", item.deinstalled_at) : ""}
-    ${item.deinstalled_by ? f("Deinstalliert von", item.deinstalled_by) : ""}
-    ${item.reason ? f("Grund", item.reason) : ""}
-    ${item.original_created_at ? f("Urspr. angelegt", item.original_created_at) : ""}
+  return `<div class="connection-path" aria-label="Leitungsweg von RFRA über BB IN zu BB OUT">
+    ${pathNode("RFRA Switch / Port", item.switch_name, item.switch_port)}
+    <div class="path-arrow" aria-hidden="true">&#8594;</div>
+    ${pathNode("BB IN / Port", bbInPP, bbInPort)}
+    <div class="path-arrow" aria-hidden="true">&#8594;</div>
+    ${pathNode("BB OUT / Port", bbOutPP, bbOutPort)}
   </div>`;
 }
 
@@ -211,18 +172,9 @@ function renderRows() {
       }" data-toggle="${id}">&#9654;</span></td>
       <td class="col-serial mono">${isPinned ? '<span class="pin-icon" title="Angepinnt">&#128204;</span> ' : ""}${esc(item.serial || "-")}</td>
       <td class="col-kunde">${esc(customerText(item))}</td>
-      <td class="col-rfra">${rfraCell(item)}</td>
       <td class="col-aside">${aSideCell(item)}</td>
       <td class="col-zside">${zSideCell(item)}</td>
-      <td class="col-bb">${bbCell(
-        item.bb_in?.pp || item.backbone_in_instance_id,
-        item.bb_in?.port || item.backbone_in_port_label
-      )}</td>
-      <td class="col-bb">${bbCell(
-        item.bb_out?.pp || item.backbone_out_instance_id,
-        item.bb_out?.port || item.backbone_out_port_label
-      )}</td>
-      <td>${badge(item.status)}</td>
+      <td class="col-status">${badge(item.status)}</td>
     `;
     body.appendChild(tr);
 
@@ -231,7 +183,7 @@ function renderRows() {
       const dr = document.createElement("tr");
       dr.className = "detail-row";
       dr.dataset.detailFor = id;
-      dr.innerHTML = `<td colspan="9">${detailHtml(item)}</td>`;
+      dr.innerHTML = `<td colspan="6">${detailHtml(item)}</td>`;
       body.appendChild(dr);
     }
   }

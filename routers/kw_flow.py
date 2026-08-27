@@ -781,7 +781,10 @@ def list_archived_cross_connects(
     rows = db.execute(text(sql), params).mappings().all()
     items = []
     for row in rows:
+        # Archive rows keep the same database-side backbone orientation as
+        # active lines. Normalize them before exposing BB IN / BB OUT.
         r = dict(row)
+        r = _swap_backbone_fields(r) or r
         z_pp = r.get("customer_patchpanel_instance_id") or r.get("customer_patchpanel_id")
         sys_name = r.get("system_name") or ""
         base_name = r.get("customer_base_name") or ""
