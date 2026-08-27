@@ -2518,7 +2518,9 @@ async function loadAccessPanel() {
       window._undoAccessRequest(Number(btn.dataset.planId), Number(btn.dataset.customerId));
     }));
   } catch (e) {
-    panel.style.display = "none";
+    panel.style.display = "block";
+    list.innerHTML = `<div class="access-load-error"><i class="fas fa-triangle-exclamation" aria-hidden="true"></i><div><b>Zugangsbeschränkungen konnten nicht geladen werden.</b><div class="small">${esc(e.message)}</div></div></div>`;
+    console.error("KW access restrictions could not be loaded", e);
   }
 }
 

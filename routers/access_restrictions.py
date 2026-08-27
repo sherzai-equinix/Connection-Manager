@@ -145,6 +145,20 @@ def get_access_requests_for_plan(
                     ELSE 'new_z'
                 END AS target_role,
                 CASE
+                    WHEN kc.type = 'NEW_INSTALL' THEN COALESCE(
+                        kc.payload_json->'new_line'->>'system_name',
+                        kc.payload_json->'new_line'->>'customer',
+                        kc.payload_json->>'system_name',
+                        kc.payload_json->>'customer'
+                    )
+                    ELSE COALESCE(
+                        kc.payload_json->'new_z'->>'system_name',
+                        kc.payload_json->'new_z'->>'customer',
+                        kc.payload_json->'snapshot'->>'system_name',
+                        kc.payload_json->'snapshot'->>'customer'
+                    )
+                END AS customer_hint,
+                CASE
                     WHEN target.raw_patchpanel_id ~ '^[0-9]+$'
                     THEN target.raw_patchpanel_id::BIGINT
                     ELSE NULL
@@ -171,6 +185,14 @@ def get_access_requests_for_plan(
                 kc.id AS change_id,
                 kc.type AS change_type,
                 line_target.target_role,
+                COALESCE(
+                    cc.system_name,
+                    CASE
+                        WHEN line_target.target_role = 'line_a'
+                        THEN kc.payload_json->>'line_a_customer'
+                        ELSE kc.payload_json->>'line_b_customer'
+                    END
+                ) AS customer_hint,
                 cc.customer_patchpanel_id AS patchpanel_id,
                 cc.id AS cross_connect_id
             FROM public.kw_changes kc
@@ -217,16 +239,35 @@ def get_access_requests_for_plan(
                 affected.change_id,
                 affected.change_type,
                 affected.target_role,
+                affected.customer_hint,
                 affected.cross_connect_id,
                 pi.id AS patchpanel_id,
                 pi.instance_id,
                 COALESCE(NULLIF(pi.room, ''), NULLIF(pi.room_code, '')) AS room,
                 pi.rack_label,
-                pi.cage_no
+                pi.cage_no,
+                CASE
+                    WHEN c.id = pi.customer_id THEN 'customer_id'
+                    ELSE 'system_name'
+                END AS customer_match_source
             FROM affected_targets affected
             JOIN public.patchpanel_instances pi ON pi.id = affected.patchpanel_id
-            JOIN public.customers c ON c.id = pi.customer_id
-            WHERE c.access_restricted = TRUE
+            JOIN public.customers c
+              ON c.access_restricted = TRUE
+             AND (
+                    c.id = pi.customer_id
+                    OR (
+                        pi.customer_id IS NULL
+                        AND NULLIF(BTRIM(affected.customer_hint), '') IS NOT NULL
+                        AND (
+                            LOWER(BTRIM(affected.customer_hint)) = LOWER(BTRIM(c.name))
+                            OR RIGHT(
+                                LOWER(BTRIM(affected.customer_hint)),
+                                LENGTH(LOWER(BTRIM(c.name))) + 1
+                            ) = ':' || LOWER(BTRIM(c.name))
+                        )
+                    )
+                 )
         )
         SELECT
             id,
@@ -237,6 +278,8 @@ def get_access_requests_for_plan(
                     'change_id', change_id,
                     'change_type', change_type,
                     'target_role', target_role,
+                    'customer_hint', customer_hint,
+                    'customer_match_source', customer_match_source,
                     'cross_connect_id', cross_connect_id,
                     'patchpanel_id', patchpanel_id,
                     'instance_id', instance_id,

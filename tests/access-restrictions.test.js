@@ -114,7 +114,24 @@ test("backend query covers install, line move, and both path-move lines", () => 
   assert.match(backendSource, /'line_a'::TEXT/);
   assert.match(backendSource, /'line_b'::TEXT/);
   assert.match(backendSource, /'change_id', change_id/);
-  assert.match(backendSource, /JOIN public\.customers c ON c\.id = pi\.customer_id/);
+  assert.match(backendSource, /c\.id = pi\.customer_id/);
+});
+
+test("legacy patchpanels without customer_id fall back to a bounded system-name match", () => {
+  const backendSource = fs.readFileSync(
+    path.join(repoRoot, "routers", "access_restrictions.py"),
+    "utf8",
+  );
+
+  assert.match(backendSource, /AS customer_hint/);
+  assert.match(backendSource, /pi\.customer_id IS NULL/);
+  assert.match(backendSource, /RIGHT\(/);
+  assert.match(backendSource, /'customer_match_source', customer_match_source/);
+});
+
+test("access API errors are visible instead of silently hiding the panel", () => {
+  assert.match(frontendSource, /Zugangsbeschränkungen konnten nicht geladen werden/);
+  assert.match(frontendSource, /class="access-load-error"/);
 });
 
 test("placeholder access URL cannot falsely mark a request as sent", () => {
