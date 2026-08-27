@@ -28,7 +28,7 @@ const state = {
   plans: [], selectedKw: "", changes: [], filtered: [],
   editing: null, editingInstall: null, editingLineMove: null, typeFilter: "NEW_INSTALL", statusFilter: "open",
   kwNavYear: new Date().getFullYear(), kwNavMonth: new Date().getMonth(),
-  restrictedNames: new Map(),
+  restrictedCustomers: new Map(), restrictionsByChange: new Map(),
   // Caches
   _rooms: null, _ppByRoom: {},
   // ── Install form auto-fill state ──
@@ -169,23 +169,54 @@ function changeCustomerName(c) {
   return "";
 }
 
-function restrictedIcon(ch) {
-  const rawName = changeCustomerName(ch).trim();
-  if (!rawName || !state.restrictedNames.size) return "";
-  // system_name can be "Room:Rack:Customer" or just "Customer"
-  const nameLower = rawName.toLowerCase();
-  const parts = rawName.split(":").map(p => p.trim().toLowerCase());
-  for (const [rn, info] of state.restrictedNames) {
-    const rnLower = rn.toLowerCase();
-    if (nameLower === rnLower || parts.includes(rnLower) || nameLower.includes(rnLower)) {
-      const approved = info.approved;
-      const color = approved ? "#22c55e" : "#dc2626";
-      const title = approved ? "✓ Access gesendet" : `⚠ Restricted: ${(info.type || "access_approval").replace(/_/g, " ")}`;
-      const custId = info.id;
-      return `<span class="restricted-badge ${approved ? "approved" : "pending"}" data-customer-id="${custId}" title="${esc(title)}" style="color:${color};margin-left:6px;font-size:.9rem;cursor:pointer;"><i class="fas fa-user-slash"></i></span>`;
+const RESTRICTION_TYPE_META = {
+  access_approval: { label: "Access Approval", pending: "Access anfragen" },
+  specific_time: { label: "Bestimmte Uhrzeit", pending: "Zeitvorgabe beachten" },
+  announcement: { label: "Announcement", pending: "Anmeldung erforderlich" },
+};
+
+function restrictionTypeMeta(type) {
+  const key = String(type || "access_approval").toLowerCase();
+  return RESTRICTION_TYPE_META[key] || {
+    label: key.replace(/_/g, " "), pending: "Zugangsbeschränkung beachten",
+  };
+}
+
+function buildRestrictionIndexes(restrictedCustomers, requests) {
+  const customerMap = new Map();
+  const changeMap = new Map();
+  const requestedIds = new Set((requests || []).map(r => Number(r.customer_id)));
+
+  for (const customer of restrictedCustomers || []) {
+    const info = {
+      id: Number(customer.id),
+      name: customer.name || "Unbekannter Kunde",
+      type: customer.restriction_type || "access_approval",
+      approved: requestedIds.has(Number(customer.id)),
+      affected_targets: Array.isArray(customer.affected_targets)
+        ? customer.affected_targets
+        : (Array.isArray(customer.affected_patchpanels) ? customer.affected_patchpanels : []),
+    };
+    customerMap.set(info.id, info);
+    for (const target of info.affected_targets) {
+      const changeId = Number(target.change_id);
+      if (!changeId) continue;
+      const entries = changeMap.get(changeId) || [];
+      if (!entries.some(entry => entry.id === info.id)) entries.push(info);
+      changeMap.set(changeId, entries);
     }
   }
-  return "";
+  return { customerMap, changeMap, requestedIds };
+}
+
+function restrictionBadges(ch) {
+  const restricted = state.restrictionsByChange.get(Number(ch.id)) || [];
+  return restricted.map(info => {
+    const meta = restrictionTypeMeta(info.type);
+    const status = info.approved ? "Access gesendet" : meta.pending;
+    const title = `Zugang beschränkt: ${info.name} · ${meta.label} · ${status}`;
+    return `<button type="button" class="restricted-badge ${info.approved ? "approved" : "pending"}" data-customer-id="${info.id}" title="${esc(title)}" aria-label="${esc(title)}"><i class="fas fa-user-lock" aria-hidden="true"></i></button>`;
+  }).join("");
 }
 
 function looptestBadge(c) {
@@ -750,9 +781,9 @@ function renderChanges() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><button class="btn" data-action="expand" data-id="${ch.id}" style="padding:2px 7px;font-size:.8rem;" title="Details">&#9660;</button></td>
-      <td>${typePill(ch.type)}</td>
+      <td><span class="type-access-wrap">${typePill(ch.type)}${restrictionBadges(ch)}</span></td>
       <td class="mono">${esc(changeTarget(ch))}</td>
-      <td>${esc(changeCustomerName(ch) || "-")}${restrictedIcon(ch)}</td>
+      <td>${esc(changeCustomerName(ch) || "-")}</td>
       <td>${esc(changeLogicalName(ch))}</td>
       <td>${statusBadge(ch.status, ch.id)}</td>
       <td class="small muted">${fmtDate(ch.created_at)}</td>
@@ -839,7 +870,13 @@ async function loadPlans(preferredKw) {
 }
 
 async function loadChanges(kw) {
-  if (!kw) { state.changes = []; state.restrictedNames = new Map(); renderChanges(); return; }
+  if (!kw) {
+    state.changes = [];
+    state.restrictedCustomers = new Map();
+    state.restrictionsByChange = new Map();
+    renderChanges();
+    return;
+  }
   const d = await apiJson(`${API_KW_CHANGES}?kw=${encodeURIComponent(kw)}`);
   state.changes = Array.isArray(d.items) ? d.items : [];
   await loadAccessPanel();
@@ -2299,14 +2336,14 @@ function bindEvents() {
     if (rBadge) {
       const custId = Number(rBadge.dataset.customerId);
       if (!custId) return;
-      const info = [...state.restrictedNames.values()].find(v => v.id === custId);
+      const info = state.restrictedCustomers.get(custId);
       if (!info) return;
       if (info.approved) {
         toast(`Access für diesen Kunden wurde bereits gesendet.`, "success");
       } else {
         const typeName = (info.type || "access_approval").replace(/_/g, " ");
         toast(`Restriktion: ${typeName} – Weiterleitung zur Access-App…`, "info");
-        window._openAccessApp(custId, "");
+        window._openAccessApp(custId, info.name);
       }
       return;
     }
@@ -2427,7 +2464,8 @@ async function loadAccessPanel() {
   if (!panel || !list) return;
 
   const plan = state.plans.find(p => p.kw === state.selectedKw);
-  state.restrictedNames = new Map();
+  state.restrictedCustomers = new Map();
+  state.restrictionsByChange = new Map();
 
   if (!plan) { panel.style.display = "none"; return; }
 
@@ -2436,17 +2474,10 @@ async function loadAccessPanel() {
     const restricted = data.restricted_customers || [];
     const requests = data.requests || [];
 
-    // Update Map with approval status from this KW
-    const requestedIds = new Set(requests.map(r => r.customer_id));
-    for (const c of restricted) {
-      const affected = Array.isArray(c.affected_patchpanels) ? c.affected_patchpanels : [];
-      state.restrictedNames.set(c.name, {
-        id: c.id,
-        type: c.restriction_type || "access_approval",
-        approved: requestedIds.has(c.id),
-        affected_patchpanels: affected,
-      });
-    }
+    const indexes = buildRestrictionIndexes(restricted, requests);
+    const requestedIds = indexes.requestedIds;
+    state.restrictedCustomers = indexes.customerMap;
+    state.restrictionsByChange = indexes.changeMap;
 
     if (!restricted.length) { panel.style.display = "none"; return; }
 
@@ -2456,23 +2487,36 @@ async function loadAccessPanel() {
       const done = requestedIds.has(c.id);
       const req = requests.find(r => r.customer_id === c.id);
       const dateStr = req ? new Date(req.requested_at).toLocaleString("de-DE", {day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}) : "";
-      const affected = Array.isArray(c.affected_patchpanels) ? c.affected_patchpanels : [];
+      const affected = Array.isArray(c.affected_targets)
+        ? c.affected_targets
+        : (Array.isArray(c.affected_patchpanels) ? c.affected_patchpanels : []);
       const ppContext = affected.map(pp => {
         const loc = [pp.room, pp.rack_label, pp.cage_no].filter(Boolean).join(" / ");
-        return `${pp.instance_id || pp.patchpanel_id}${loc ? " (" + loc + ")" : ""}`;
+        const type = TYPE_META[String(pp.change_type || "").toUpperCase()]?.label || pp.change_type || "Massnahme";
+        return `${type} #${pp.change_id}: ${pp.instance_id || pp.patchpanel_id}${loc ? " (" + loc + ")" : ""}`;
       }).join(", ");
+      const restrictionMeta = restrictionTypeMeta(c.restriction_type);
       return `<div class="access-row ${done ? "done" : ""}">
         <div>
           <span class="access-customer">${esc(c.name)}</span>
+          <span class="access-kind">${esc(restrictionMeta.label)}</span>
           ${done ? `<span class="small muted" style="margin-left:10px;">Gesendet: ${esc(dateStr)}</span>` : ""}
-          ${ppContext ? `<div class="small muted" style="margin-top:4px;">Aus geplanter Installation: ${esc(ppContext)}</div>` : ""}
+          ${ppContext ? `<div class="small muted" style="margin-top:4px;">Betroffene Massnahmen: ${esc(ppContext)}</div>` : ""}
         </div>
         <div class="access-actions">
-          <span class="access-badge ${done ? "sent" : "pending"}">${done ? "✓ Access gesendet" : "⚠ Access nötig"}</span>
-          ${!done ? `<button class="btn btn-sm" onclick="window._openAccessApp(${c.id}, '${esc(c.name)}')" title="Zur Anmelde-App wechseln"><i class="fas fa-external-link-alt"></i> Access anfragen</button>` : `<button class="btn btn-sm" onclick="window._undoAccessRequest(${plan.id}, ${c.id})" title="Zurücksetzen"><i class="fas fa-undo"></i></button>`}
+          <span class="access-badge ${done ? "sent" : "pending"}">${done ? "✓ Access gesendet" : `⚠ ${esc(restrictionMeta.pending)}`}</span>
+          ${!done ? `<button class="btn btn-sm access-open-btn" data-customer-id="${c.id}" title="Zur Anmelde-App wechseln"><i class="fas fa-external-link-alt"></i> Details öffnen</button>` : `<button class="btn btn-sm access-undo-btn" data-plan-id="${plan.id}" data-customer-id="${c.id}" title="Zurücksetzen"><i class="fas fa-undo"></i></button>`}
         </div>
       </div>`;
     }).join("");
+
+    list.querySelectorAll(".access-open-btn").forEach(btn => btn.addEventListener("click", () => {
+      const info = state.restrictedCustomers.get(Number(btn.dataset.customerId));
+      if (info) window._openAccessApp(info.id, info.name);
+    }));
+    list.querySelectorAll(".access-undo-btn").forEach(btn => btn.addEventListener("click", () => {
+      window._undoAccessRequest(Number(btn.dataset.planId), Number(btn.dataset.customerId));
+    }));
   } catch (e) {
     panel.style.display = "none";
   }
@@ -2480,7 +2524,9 @@ async function loadAccessPanel() {
 
 window._openAccessApp = function(customerId, customerName) {
   // Open colleague's app in new tab
-  if (ACCESS_APP_URL) {
+  const hasConfiguredAccessApp = ACCESS_APP_URL
+    && !/PLACEHOLDER|example\.com/i.test(ACCESS_APP_URL);
+  if (hasConfiguredAccessApp) {
     window.open(ACCESS_APP_URL, "_blank");
   } else {
     toast("Access-App URL ist noch nicht konfiguriert (config.js → ACCESS_REQUEST_APP_URL)", "error");
@@ -2495,15 +2541,40 @@ window._openAccessApp = function(customerId, customerName) {
     body: JSON.stringify({ customer_id: customerId }),
   }).then(() => {
     toast(`Access für ${customerName} als gesendet markiert`, "success");
-    loadAccessPanel();
+    loadAccessPanel().then(renderChanges);
   }).catch(e => toast(`Fehler: ${e.message}`, "error"));
 };
 
 window._undoAccessRequest = function(planId, customerId) {
   apiJson(`${API_ACCESS}/kw/${planId}/request/${customerId}`, { method: "DELETE" })
-    .then(() => { toast("Zurückgesetzt", "success"); loadAccessPanel(); })
+    .then(() => { toast("Zurückgesetzt", "success"); return loadAccessPanel(); })
+    .then(renderChanges)
     .catch(e => toast(`Fehler: ${e.message}`, "error"));
 };
+
+let accessRefreshInProgress = false;
+async function refreshAccessRestrictions() {
+  if (accessRefreshInProgress || !state.selectedKw || !state.plans.length) return;
+  accessRefreshInProgress = true;
+  try {
+    await loadAccessPanel();
+    renderChanges();
+  } catch (_) {
+    // loadAccessPanel already hides stale access information on API errors.
+  } finally {
+    accessRefreshInProgress = false;
+  }
+}
+
+// A restriction changed in an Admin tab: update the visible KW immediately.
+window.addEventListener("storage", event => {
+  if (event.key === "accessRestrictionsChangedAt") refreshAccessRestrictions();
+});
+// Also refresh when returning from the Admin page or another browser tab.
+window.addEventListener("focus", refreshAccessRestrictions);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") refreshAccessRestrictions();
+});
 
 let collaborationReloadInProgress = false;
 window.addEventListener("collaboration:data-changed", async () => {

@@ -416,10 +416,17 @@
     .access-badge.pending { background:rgba(245,158,11,.15); color:#f59e0b; }
     .access-badge.sent { background:rgba(22,163,74,.15); color:#4ade80; }
     .access-actions { display:flex; gap:8px; align-items:center; }
+    .access-kind { display:inline-flex; margin-left:8px; padding:2px 7px; border-radius:999px; font-size:.7rem; font-weight:700; background:rgba(245,158,11,.12); color:#fbbf24; }
+    .type-access-wrap { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+    .restricted-badge { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; padding:0; border-radius:50%; cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; }
+    .restricted-badge:hover { transform:translateY(-1px); box-shadow:0 3px 9px rgba(0,0,0,.25); }
+    .restricted-badge.pending { color:#fff; background:#dc2626; border:1px solid #f87171; }
+    .restricted-badge.approved { color:#fff; background:#16a34a; border:1px solid #4ade80; }
     body.light-mode .access-row { background:rgba(245,158,11,.04); border-color:rgba(245,158,11,.2); }
     body.light-mode .access-row.done { background:rgba(22,163,74,.04); border-color:rgba(22,163,74,.2); }
     body.light-mode .access-badge.pending { background:rgba(245,158,11,.1); color:#d97706; }
     body.light-mode .access-badge.sent { background:rgba(22,163,74,.1); color:#16a34a; }
+    body.light-mode .access-kind { background:#fef3c7; color:#92400e; }
   </style>
 </head>
 <body class="kw-planning-page">

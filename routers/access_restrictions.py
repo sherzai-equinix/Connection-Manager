@@ -121,8 +121,10 @@ def get_access_requests_for_plan(
 ):
     """Get access requests plus restricted customers affected by this KW plan.
 
-    Access is only needed when an open NEW_INSTALL in this KW targets a
-    Z-side customer patchpanel whose customer is marked as restricted.
+    A customer is affected when an open installation or line move selects one
+    of its Z-side patchpanels, or when either line of a path move terminates on
+    one of its patchpanels.  Change IDs are returned so the frontend can mark
+    the exact row instead of trying to match formatted customer names.
     """
     _ensure_tables(db)
     rows = db.execute(text("""
@@ -134,34 +136,97 @@ def get_access_requests_for_plan(
     """), {"pid": plan_id}).mappings().all()
 
     restricted = db.execute(text("""
-        WITH install_targets AS (
-            SELECT DISTINCT
-                   c.id,
-                   c.name,
-                   c.restriction_type,
-                   pi.id AS patchpanel_id,
-                   pi.instance_id,
-                   COALESCE(NULLIF(pi.room, ''), NULLIF(pi.room_code, '')) AS room,
-                   pi.rack_label,
-                   pi.cage_no
-            FROM public.kw_changes kc
-            JOIN public.patchpanel_instances pi
-              ON pi.id = CASE
-                    WHEN COALESCE(
-                        kc.payload_json->'new_line'->>'customer_patchpanel_id',
-                        kc.payload_json->>'customer_patchpanel_id'
-                    ) ~ '^[0-9]+$'
-                    THEN COALESCE(
-                        kc.payload_json->'new_line'->>'customer_patchpanel_id',
-                        kc.payload_json->>'customer_patchpanel_id'
-                    )::BIGINT
+        WITH selected_patchpanel_targets AS (
+            SELECT
+                kc.id AS change_id,
+                kc.type AS change_type,
+                CASE
+                    WHEN kc.type = 'NEW_INSTALL' THEN 'new_line'
+                    ELSE 'new_z'
+                END AS target_role,
+                CASE
+                    WHEN target.raw_patchpanel_id ~ '^[0-9]+$'
+                    THEN target.raw_patchpanel_id::BIGINT
                     ELSE NULL
-                 END
-            JOIN public.customers c ON c.id = pi.customer_id
+                END AS patchpanel_id,
+                NULL::BIGINT AS cross_connect_id
+            FROM public.kw_changes kc
+            CROSS JOIN LATERAL (
+                SELECT CASE
+                    WHEN kc.type = 'NEW_INSTALL' THEN COALESCE(
+                        kc.payload_json->'new_line'->>'customer_patchpanel_id',
+                        kc.payload_json->>'customer_patchpanel_id'
+                    )
+                    WHEN kc.type = 'LINE_MOVE' THEN
+                        kc.payload_json->'new_z'->>'customer_patchpanel_id'
+                    ELSE NULL
+                END AS raw_patchpanel_id
+            ) target
             WHERE kc.kw_plan_id = :pid
-              AND kc.type = 'NEW_INSTALL'
+              AND kc.type IN ('NEW_INSTALL', 'LINE_MOVE')
               AND LOWER(COALESCE(kc.status, 'planned')) IN ('planned', 'in_progress')
-              AND c.access_restricted = TRUE
+        ),
+        path_move_targets AS (
+            SELECT
+                kc.id AS change_id,
+                kc.type AS change_type,
+                line_target.target_role,
+                cc.customer_patchpanel_id AS patchpanel_id,
+                cc.id AS cross_connect_id
+            FROM public.kw_changes kc
+            CROSS JOIN LATERAL (
+                VALUES
+                    (
+                        'line_a'::TEXT,
+                        CASE
+                            WHEN COALESCE(
+                                kc.payload_json->>'line_a_id',
+                                kc.target_cross_connect_id::TEXT
+                            ) ~ '^[0-9]+$'
+                            THEN COALESCE(
+                                kc.payload_json->>'line_a_id',
+                                kc.target_cross_connect_id::TEXT
+                            )::BIGINT
+                            ELSE NULL
+                        END
+                    ),
+                    (
+                        'line_b'::TEXT,
+                        CASE
+                            WHEN kc.payload_json->>'line_b_id' ~ '^[0-9]+$'
+                            THEN (kc.payload_json->>'line_b_id')::BIGINT
+                            ELSE NULL
+                        END
+                    )
+            ) AS line_target(target_role, cross_connect_id)
+            JOIN public.cross_connects cc ON cc.id = line_target.cross_connect_id
+            WHERE kc.kw_plan_id = :pid
+              AND kc.type = 'PATH_MOVE'
+              AND LOWER(COALESCE(kc.status, 'planned')) IN ('planned', 'in_progress')
+        ),
+        affected_targets AS (
+            SELECT * FROM selected_patchpanel_targets
+            UNION ALL
+            SELECT * FROM path_move_targets
+        ),
+        restricted_targets AS (
+            SELECT DISTINCT
+                c.id,
+                c.name,
+                c.restriction_type,
+                affected.change_id,
+                affected.change_type,
+                affected.target_role,
+                affected.cross_connect_id,
+                pi.id AS patchpanel_id,
+                pi.instance_id,
+                COALESCE(NULLIF(pi.room, ''), NULLIF(pi.room_code, '')) AS room,
+                pi.rack_label,
+                pi.cage_no
+            FROM affected_targets affected
+            JOIN public.patchpanel_instances pi ON pi.id = affected.patchpanel_id
+            JOIN public.customers c ON c.id = pi.customer_id
+            WHERE c.access_restricted = TRUE
         )
         SELECT
             id,
@@ -169,14 +234,18 @@ def get_access_requests_for_plan(
             restriction_type,
             jsonb_agg(
                 DISTINCT jsonb_build_object(
+                    'change_id', change_id,
+                    'change_type', change_type,
+                    'target_role', target_role,
+                    'cross_connect_id', cross_connect_id,
                     'patchpanel_id', patchpanel_id,
                     'instance_id', instance_id,
                     'room', room,
                     'rack_label', rack_label,
                     'cage_no', cage_no
                 )
-            ) AS affected_patchpanels
-        FROM install_targets
+            ) AS affected_targets
+        FROM restricted_targets
         GROUP BY id, name, restriction_type
         ORDER BY name ASC
     """), {"pid": plan_id}).mappings().all()
@@ -197,7 +266,9 @@ def get_access_requests_for_plan(
                 "id": int(r["id"]),
                 "name": r["name"],
                 "restriction_type": r.get("restriction_type") or "access_approval",
-                "affected_patchpanels": r.get("affected_patchpanels") or [],
+                "affected_targets": r.get("affected_targets") or [],
+                # Kept for older frontend versions during a rolling deploy.
+                "affected_patchpanels": r.get("affected_targets") or [],
             }
             for r in restricted
         ],

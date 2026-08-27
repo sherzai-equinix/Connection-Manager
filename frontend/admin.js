@@ -611,6 +611,7 @@
         badge.textContent = restricted ? 'Beschränkt' : 'Frei';
       }
       toast(restricted ? 'Zugangsbeschränkung aktiviert' : 'Zugangsbeschränkung entfernt', 'success');
+      try { localStorage.setItem('accessRestrictionsChangedAt', String(Date.now())); } catch (_) {}
     } catch (e) {
       checkbox.checked = !restricted;
       toast('Fehler: ' + e.message, 'error');
@@ -631,6 +632,7 @@
       });
       if (item) item.restriction_type = rtype;
       toast('Typ geändert: ' + rtype, 'success');
+      try { localStorage.setItem('accessRestrictionsChangedAt', String(Date.now())); } catch (_) {}
     } catch (e) {
       toast('Fehler: ' + e.message, 'error');
     }
