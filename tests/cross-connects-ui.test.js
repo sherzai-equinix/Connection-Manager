@@ -140,3 +140,9 @@ test("light mode and expanded path use the blue-teal logo palette", () => {
   assert.match(htmlSource, /#2563eb/);
   assert.match(htmlSource, /#0ea5a4/);
 });
+
+test("status filter is rendered as one select box without an outer box", () => {
+  assert.match(htmlSource, /\.cc-filter\{[^}]*background:transparent;/);
+  assert.match(htmlSource, /\.cc-filter \.select\{[^}]*border:1px solid/);
+  assert.doesNotMatch(htmlSource, /\.cc-filter\{[^}]*border:1px solid/);
+});

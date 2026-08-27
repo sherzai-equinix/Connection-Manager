@@ -25,9 +25,9 @@
     .cc-search-box svg{position:absolute;left:12px;width:16px;height:16px;color:var(--muted,#999);pointer-events:none;}
     .cc-search-box .input{width:100%;padding-left:38px;background:rgba(15,23,42,.28);}
     .cc-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
-    .cc-filter{height:38px;display:flex;align-items:center;gap:8px;padding-left:11px;border:1px solid var(--border,#333);border-radius:10px;background:rgba(15,23,42,.28);}
-    .cc-filter span{color:var(--muted,#999);font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
-    .cc-filter .select{width:120px;height:36px;border:0;background:transparent;padding-left:4px;}
+    .cc-filter{position:relative;height:38px;display:flex;align-items:center;background:transparent;}
+    .cc-filter span{position:absolute;left:12px;z-index:1;color:var(--muted,#999);font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;pointer-events:none;}
+    .cc-filter .select{width:154px;height:38px;border:1px solid var(--border,#333);border-radius:10px;background:rgba(15,23,42,.28);padding:0 32px 0 64px;}
     .cc-toolbar .btn{height:38px;white-space:nowrap;}
     .cc-pinned{display:flex;align-items:center;gap:6px;}
     .cc-list-head{min-height:42px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 14px;border-bottom:1px solid var(--border,#333);background:rgba(148,163,184,.025);}
@@ -106,7 +106,7 @@
     /* ── Light Mode Overrides ── */
     body.light-mode.cross-connects-page { background:radial-gradient(1000px 520px at -5% -10%,rgba(37,99,235,.17),transparent 62%),radial-gradient(950px 540px at 105% 4%,rgba(14,165,164,.16),transparent 64%),linear-gradient(145deg,#eaf3fb 0%,#e9f6f3 52%,#e4f0f2 100%) !important; }
     body.light-mode .cc-hero { background: linear-gradient(135deg,rgba(59,130,246,.075),rgba(16,185,129,.04) 54%,rgba(255,255,255,.55)); border-color: rgba(59,130,246,.18); }
-    body.light-mode .cc-metric,body.light-mode .cc-search-box .input,body.light-mode .cc-filter { background: rgba(255,255,255,.68); }
+    body.light-mode .cc-metric,body.light-mode .cc-search-box .input,body.light-mode .cc-filter .select { background: rgba(255,255,255,.68); }
     body.light-mode .cc-metric .val { color: #14241f; }
     body.light-mode .cc-title { color: #14241f; }
     body.light-mode .cc-list-head { background: rgba(237,243,240,.7); }
