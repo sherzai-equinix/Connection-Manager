@@ -42,6 +42,9 @@
     .cc-table .col-aside{width:22%;}
     .cc-table .col-zside{width:30%;}
     .cc-table .col-status{width:110px;text-align:center;white-space:nowrap;}
+    .cc-status-badge{min-width:68px;justify-content:center;gap:6px;padding:5px 10px;font-size:.75rem;text-transform:none;letter-spacing:.01em;}
+    .cc-status-badge::before{content:"";width:6px;height:6px;flex:0 0 auto;border-radius:50%;background:currentColor;box-shadow:0 0 0 3px color-mix(in srgb,currentColor 14%,transparent);}
+    .cc-status-badge.badge-success{background:linear-gradient(135deg,rgba(37,99,235,.18),rgba(14,165,164,.22));color:#6ee7d8;border-color:rgba(45,190,184,.42);}
     .cell-sub{font-size:.78rem;color:var(--muted,#999);margin-top:2px;}
     .side-preview{min-width:0;}
     .side-preview-main{font-weight:600;overflow-wrap:anywhere;}
@@ -50,6 +53,9 @@
     .detail-row td{padding:14px 18px !important;background:var(--card-bg,#1a1a2e);border-top:none;}
     .connection-path{display:grid;grid-template-columns:minmax(180px,1fr) 34px minmax(180px,1fr) 34px minmax(180px,1fr);align-items:stretch;gap:10px;}
     .path-node{display:flex;flex-direction:column;gap:5px;min-width:0;padding:12px 14px;border:1px solid var(--border,#333);border-radius:10px;background:rgba(148,163,184,.05);}
+    .path-node-rfra{border-color:rgba(37,99,235,.34);background:linear-gradient(145deg,rgba(37,99,235,.12),rgba(37,99,235,.035));}
+    .path-node-bb-in{border-color:rgba(14,165,164,.3);background:linear-gradient(145deg,rgba(37,99,235,.07),rgba(14,165,164,.09));}
+    .path-node-bb-out{border-color:rgba(14,165,164,.38);background:linear-gradient(145deg,rgba(14,165,164,.11),rgba(14,165,164,.035));}
     .path-node-kind{font-size:.72rem;color:var(--muted,#999);font-weight:700;text-transform:uppercase;letter-spacing:.05em;}
     .path-node-name{font-size:.94rem;font-weight:700;overflow-wrap:anywhere;}
     .path-node-port{font-size:.82rem;color:var(--muted,#999);}
@@ -98,14 +104,19 @@
     }
 
     /* ── Light Mode Overrides ── */
+    body.light-mode.cross-connects-page { background:radial-gradient(1000px 520px at -5% -10%,rgba(37,99,235,.17),transparent 62%),radial-gradient(950px 540px at 105% 4%,rgba(14,165,164,.16),transparent 64%),linear-gradient(145deg,#eaf3fb 0%,#e9f6f3 52%,#e4f0f2 100%) !important; }
     body.light-mode .cc-hero { background: linear-gradient(135deg,rgba(59,130,246,.075),rgba(16,185,129,.04) 54%,rgba(255,255,255,.55)); border-color: rgba(59,130,246,.18); }
     body.light-mode .cc-metric,body.light-mode .cc-search-box .input,body.light-mode .cc-filter { background: rgba(255,255,255,.68); }
     body.light-mode .cc-metric .val { color: #14241f; }
     body.light-mode .cc-title { color: #14241f; }
     body.light-mode .cc-list-head { background: rgba(237,243,240,.7); }
-    body.light-mode .detail-row td { background: #f8fafc; }
+    body.light-mode .cc-status-badge.badge-success { background:linear-gradient(135deg,rgba(37,99,235,.13),rgba(14,165,164,.18));color:#076b69;border-color:rgba(14,165,164,.35);box-shadow:0 3px 10px rgba(14,165,164,.08); }
+    body.light-mode.cross-connects-page .cc-table .detail-row > td { background:linear-gradient(110deg,rgba(37,99,235,.105),rgba(255,255,255,.78) 47%,rgba(14,165,164,.12)) !important; }
     body.light-mode .cell-sub { color: #64748b; }
-    body.light-mode .path-node { background: #ffffff; border-color: rgba(148,163,184,.25); }
+    body.light-mode .path-node { box-shadow:0 7px 18px rgba(37,99,235,.055); }
+    body.light-mode .path-node-rfra { background:linear-gradient(145deg,rgba(219,234,254,.96),rgba(255,255,255,.92));border-color:rgba(37,99,235,.25); }
+    body.light-mode .path-node-bb-in { background:linear-gradient(145deg,rgba(229,240,255,.94),rgba(225,248,244,.94));border-color:rgba(45,164,181,.24); }
+    body.light-mode .path-node-bb-out { background:linear-gradient(145deg,rgba(220,248,244,.94),rgba(255,255,255,.92));border-color:rgba(14,165,164,.27); }
     body.light-mode .path-node-kind,body.light-mode .path-node-port,body.light-mode .path-arrow { color: #64748b; }
     body.light-mode .path-node-port strong { color: #24332f; }
     body.light-mode .pinned-row td { background: rgba(59,130,246,.04) !important; }
@@ -113,7 +124,7 @@
     body.light-mode .btn-clear-pins { background: rgba(239,68,68,.05); color: #dc2626; border-color: rgba(239,68,68,.15); }
   </style>
 </head>
-<body>
+<body class="cross-connects-page">
   <header class="topbar">
     <div class="topbar-inner">
       <div class="topbar-title">Cross Connects</div>

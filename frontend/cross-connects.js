@@ -47,7 +47,18 @@ function badge(status) {
     cls = "badge-warning";
   else if (s === "deinstalled" || s === "cancelled" || s === "canceled")
     cls = "badge-danger";
-  return `<span class="badge ${cls}">${esc(status || "-")}</span>`;
+  const labels = {
+    active: "Aktiv",
+    done: "Erledigt",
+    pending: "Ausstehend",
+    planned: "Geplant",
+    in_progress: "In Arbeit",
+    deinstalled: "Deinstalliert",
+    cancelled: "Storniert",
+    canceled: "Storniert",
+  };
+  const label = labels[s] || String(status || "-").replaceAll("_", " ");
+  return `<span class="badge ${cls} cc-status-badge">${esc(label)}</span>`;
 }
 
 /* -------------------- state -------------------- */
@@ -115,8 +126,8 @@ function customerText(item) {
 /* -------------------- expandable detail row -------------------- */
 
 function detailHtml(item) {
-  function pathNode(kind, name, port) {
-    return `<div class="path-node">
+  function pathNode(kind, name, port, tone) {
+    return `<div class="path-node path-node-${esc(tone)}">
       <div class="path-node-kind">${esc(kind)}</div>
       <div class="path-node-name mono">${esc(name || "-")}</div>
       <div class="path-node-port">Port <strong class="mono">${esc(port || "-")}</strong></div>
@@ -129,11 +140,11 @@ function detailHtml(item) {
   const bbOutPort = item.bb_out?.port || item.backbone_out_port_label;
 
   return `<div class="connection-path" aria-label="Leitungsweg von RFRA über BB IN zu BB OUT">
-    ${pathNode("RFRA Switch / Port", item.switch_name, item.switch_port)}
+    ${pathNode("RFRA Switch / Port", item.switch_name, item.switch_port, "rfra")}
     <div class="path-arrow" aria-hidden="true">&#8594;</div>
-    ${pathNode("BB IN / Port", bbInPP, bbInPort)}
+    ${pathNode("BB IN / Port", bbInPP, bbInPort, "bb-in")}
     <div class="path-arrow" aria-hidden="true">&#8594;</div>
-    ${pathNode("BB OUT / Port", bbOutPP, bbOutPort)}
+    ${pathNode("BB OUT / Port", bbOutPP, bbOutPort, "bb-out")}
   </div>`;
 }
 

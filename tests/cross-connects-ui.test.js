@@ -30,7 +30,7 @@ const browserContext = {
 };
 vm.createContext(browserContext);
 vm.runInContext(
-  `${frontendSource}\nthis.__crossConnectUi = { aSideCell, zSideCell, detailHtml, customerText, formatCustomerDisplay };`,
+  `${frontendSource}\nthis.__crossConnectUi = { aSideCell, zSideCell, detailHtml, customerText, formatCustomerDisplay, badge };`,
   browserContext,
 );
 
@@ -82,6 +82,9 @@ test("preview and path render the expected endpoint values", () => {
   assert.match(pathView, /ETH1\/2/);
   assert.match(pathView, /5\.4S6\/RU36/);
   assert.match(pathView, /4\.5\/RU42/);
+  assert.match(pathView, /path-node-rfra/);
+  assert.match(pathView, /path-node-bb-in/);
+  assert.match(pathView, /path-node-bb-out/);
 });
 
 test("active and archived lines expose the same BB IN and BB OUT orientation", () => {
@@ -117,4 +120,23 @@ test("cross-connect header groups title, metrics, search and actions", () => {
   assert.match(htmlSource, /class="cc-hero-stats" id="statStrip"/);
   assert.match(htmlSource, /class="cc-search-box"/);
   assert.match(htmlSource, /class="cc-controls"/);
+});
+
+test("active status is localized and uses the dedicated status design", () => {
+  const activeBadge = browserContext.__crossConnectUi.badge("active");
+
+  assert.match(activeBadge, />Aktiv</);
+  assert.doesNotMatch(activeBadge, />active</);
+  assert.match(activeBadge, /cc-status-badge/);
+  assert.match(htmlSource, /\.cc-status-badge\.badge-success/);
+});
+
+test("light mode and expanded path use the blue-teal logo palette", () => {
+  assert.match(htmlSource, /<body class="cross-connects-page">/);
+  assert.match(htmlSource, /body\.light-mode\.cross-connects-page/);
+  assert.match(htmlSource, /path-node-rfra/);
+  assert.match(htmlSource, /path-node-bb-in/);
+  assert.match(htmlSource, /path-node-bb-out/);
+  assert.match(htmlSource, /#2563eb/);
+  assert.match(htmlSource, /#0ea5a4/);
 });
