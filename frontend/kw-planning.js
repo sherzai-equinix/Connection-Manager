@@ -190,6 +190,29 @@ function normalizeCustomerMatchText(value) {
     .toLocaleUpperCase("de-DE");
 }
 
+const CUSTOMER_MATCH_STOPWORDS = new Set([
+  "AG", "BV", "CORPORATION", "CORP", "EUROPE", "GMBH", "GROUP", "INC",
+  "INTERNATIONAL", "LIMITED", "LLC", "LTD", "PLC", "SE", "SECURITIES",
+  "SERVICES", "THE", "TECHNOLOGY",
+]);
+
+function organizationMatchTokens(value) {
+  const normalized = normalizeCustomerMatchText(value);
+  const organization = normalized.split(":").filter(Boolean).pop() || "";
+  return organization
+    .split(/[^A-Z0-9]+/)
+    .filter(token => token.length >= 5 && !CUSTOMER_MATCH_STOPWORDS.has(token));
+}
+
+function formatCustomerDisplay(value) {
+  const raw = String(value || "").trim();
+  const parts = raw.split(":").map(part => part.trim()).filter(Boolean);
+  if (parts.length < 3) return raw;
+  const site = parts[0].toUpperCase();
+  const repeatedSite = parts.findIndex((part, index) => index > 0 && part.toUpperCase() === site);
+  return repeatedSite > 0 ? parts.slice(repeatedSite).join(":") : raw;
+}
+
 function customerMatchScore(lineCustomer, restrictedCustomer) {
   const line = normalizeCustomerMatchText(lineCustomer);
   const customer = normalizeCustomerMatchText(restrictedCustomer);
@@ -206,6 +229,16 @@ function customerMatchScore(lineCustomer, restrictedCustomer) {
   if (lineLast === customerLast && lineLast.replace(/[^A-Z0-9]/g, "").length >= 5) {
     return 500 + lineLast.length;
   }
+
+  // The line often stores only a short trading/customer label while Admin
+  // stores the full legal entity, e.g. SUSQUEHANNA vs.
+  // Susquehanna International Securities Ltd.  Match only distinctive words
+  // and ignore generic legal/business terms to avoid broad substring matches.
+  const lineTokens = new Set(organizationMatchTokens(line));
+  const sharedDistinctive = organizationMatchTokens(customer)
+    .filter(token => lineTokens.has(token) && token.length >= 7)
+    .sort((a, b) => b.length - a.length)[0];
+  if (sharedDistinctive) return 300 + sharedDistinctive.length;
   return 0;
 }
 
@@ -889,7 +922,7 @@ function renderChanges() {
       <td><button class="btn" data-action="expand" data-id="${ch.id}" style="padding:2px 7px;font-size:.8rem;" title="Details">&#9660;</button></td>
       <td><span class="type-access-wrap">${typePill(ch.type)}${restrictionBadges(ch)}</span></td>
       <td class="mono">${esc(changeTarget(ch))}</td>
-      <td>${esc(changeCustomerName(ch) || "-")}</td>
+      <td>${esc(formatCustomerDisplay(changeCustomerName(ch)) || "-")}</td>
       <td>${esc(changeLogicalName(ch))}</td>
       <td>${statusBadge(ch.status, ch.id)}</td>
       <td class="small muted">${fmtDate(ch.created_at)}</td>

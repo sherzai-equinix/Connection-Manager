@@ -32,7 +32,7 @@ function loadFrontendHelpers() {
   vm.createContext(context);
   vm.runInContext(
     frontendSource +
-      "\nglobalThis.__accessTest = { state, buildRestrictionIndexes, restrictionBadges, restrictionTypeMeta, customerMatchScore, resolveAffectedRestrictedCustomers };",
+      "\nglobalThis.__accessTest = { state, buildRestrictionIndexes, restrictionBadges, restrictionTypeMeta, customerMatchScore, formatCustomerDisplay, resolveAffectedRestrictedCustomers };",
     context,
   );
   return context.__accessTest;
@@ -135,13 +135,29 @@ test("visible KW customer name detects a restriction despite duplicated location
 
   assert.ok(helpers.customerMatchScore(lineCustomer, "FR2:EG-M5.12:S1:SUSQUEHANNA") > 0);
   assert.ok(helpers.customerMatchScore(lineCustomer, "FR2:01:005090:SUSQUEHANNA") > 0);
+  assert.ok(helpers.customerMatchScore(
+    lineCustomer,
+    "FR2:OG:0512S1:Susquehanna International Securities Ltd",
+  ) > 0);
   assert.equal(helpers.customerMatchScore(lineCustomer, "Aardvark Trading LLC"), 0);
+});
+
+test("customer display removes a duplicated site/location prefix", () => {
+  const helpers = loadFrontendHelpers();
+  assert.equal(
+    helpers.formatCustomerDisplay("FR2:M5.12:FR2:EG-M5.12:S1:SUSQUEHANNA"),
+    "FR2:EG-M5.12:S1:SUSQUEHANNA",
+  );
+  assert.equal(
+    helpers.formatCustomerDisplay("FR2:EG-M5.12:S1:SUSQUEHANNA"),
+    "FR2:EG-M5.12:S1:SUSQUEHANNA",
+  );
 });
 
 test("client fallback attaches the restricted customer to the exact install row", () => {
   const helpers = loadFrontendHelpers();
   const affected = helpers.resolveAffectedRestrictedCustomers([
-    { id: 77, name: "FR2:01:005090:SUSQUEHANNA", restriction_type: "access_approval" },
+    { id: 77, name: "FR2:OG:0512S1:Susquehanna International Securities Ltd", restriction_type: "access_approval" },
     { id: 88, name: "Aardvark Trading LLC", restriction_type: "announcement" },
   ], [], [{
     id: 9001,
