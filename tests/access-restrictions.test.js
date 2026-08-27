@@ -32,7 +32,7 @@ function loadFrontendHelpers() {
   vm.createContext(context);
   vm.runInContext(
     frontendSource +
-      "\nglobalThis.__accessTest = { state, buildRestrictionIndexes, restrictionBadges, restrictionTypeMeta };",
+      "\nglobalThis.__accessTest = { state, buildRestrictionIndexes, restrictionBadges, restrictionTypeMeta, customerMatchScore, resolveAffectedRestrictedCustomers };",
     context,
   );
   return context.__accessTest;
@@ -127,6 +127,39 @@ test("legacy patchpanels without customer_id fall back to a bounded system-name 
   assert.match(backendSource, /pi\.customer_id IS NULL/);
   assert.match(backendSource, /RIGHT\(/);
   assert.match(backendSource, /'customer_match_source', customer_match_source/);
+});
+
+test("visible KW customer name detects a restriction despite duplicated location prefixes", () => {
+  const helpers = loadFrontendHelpers();
+  const lineCustomer = "FR2:M5.12:FR2:EG-M5.12:S1:SUSQUEHANNA";
+
+  assert.ok(helpers.customerMatchScore(lineCustomer, "FR2:EG-M5.12:S1:SUSQUEHANNA") > 0);
+  assert.ok(helpers.customerMatchScore(lineCustomer, "FR2:01:005090:SUSQUEHANNA") > 0);
+  assert.equal(helpers.customerMatchScore(lineCustomer, "Aardvark Trading LLC"), 0);
+});
+
+test("client fallback attaches the restricted customer to the exact install row", () => {
+  const helpers = loadFrontendHelpers();
+  const affected = helpers.resolveAffectedRestrictedCustomers([
+    { id: 77, name: "FR2:01:005090:SUSQUEHANNA", restriction_type: "access_approval" },
+    { id: 88, name: "Aardvark Trading LLC", restriction_type: "announcement" },
+  ], [], [{
+    id: 9001,
+    type: "NEW_INSTALL",
+    status: "planned",
+    payload_json: {
+      new_line: {
+        system_name: "FR2:M5.12:FR2:EG-M5.12:S1:SUSQUEHANNA",
+        customer_patchpanel_id: 42,
+        customer_patchpanel_instance_id: "PP:0607:1370187",
+      },
+    },
+  }]);
+
+  assert.equal(affected.length, 1);
+  assert.equal(affected[0].id, 77);
+  assert.equal(affected[0].affected_targets[0].change_id, 9001);
+  assert.equal(affected[0].affected_targets[0].customer_match_source, "change_customer_name");
 });
 
 test("access API errors are visible instead of silently hiding the panel", () => {

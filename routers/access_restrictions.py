@@ -293,6 +293,17 @@ def get_access_requests_for_plan(
         ORDER BY name ASC
     """), {"pid": plan_id}).mappings().all()
 
+    # Also return the complete restricted-customer catalogue.  Older imported
+    # patchpanels can lack a usable customer_id, so the frontend uses this list
+    # for a bounded fallback match against the customer name stored in the KW
+    # change.  Only affected entries are displayed.
+    all_restricted = db.execute(text("""
+        SELECT id, name, restriction_type
+        FROM public.customers
+        WHERE access_restricted = TRUE
+        ORDER BY name ASC
+    """)).mappings().all()
+
     return {
         "requests": [
             {
@@ -314,6 +325,14 @@ def get_access_requests_for_plan(
                 "affected_patchpanels": r.get("affected_targets") or [],
             }
             for r in restricted
+        ],
+        "all_restricted_customers": [
+            {
+                "id": int(r["id"]),
+                "name": r["name"],
+                "restriction_type": r.get("restriction_type") or "access_approval",
+            }
+            for r in all_restricted
         ],
     }
 

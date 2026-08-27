@@ -182,6 +182,112 @@ function restrictionTypeMeta(type) {
   };
 }
 
+function normalizeCustomerMatchText(value) {
+  return String(value || "")
+    .normalize("NFKC")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleUpperCase("de-DE");
+}
+
+function customerMatchScore(lineCustomer, restrictedCustomer) {
+  const line = normalizeCustomerMatchText(lineCustomer);
+  const customer = normalizeCustomerMatchText(restrictedCustomer);
+  if (!line || !customer) return 0;
+  if (line === customer) return 1000 + customer.length;
+  if (line.endsWith(`:${customer}`) || customer.endsWith(`:${line}`)) {
+    return 800 + Math.min(line.length, customer.length);
+  }
+
+  // Imported names can have different site/location prefixes while retaining
+  // the same final customer segment (as in FR2:...:SUSQUEHANNA).
+  const lineLast = line.split(":").filter(Boolean).pop() || "";
+  const customerLast = customer.split(":").filter(Boolean).pop() || "";
+  if (lineLast === customerLast && lineLast.replace(/[^A-Z0-9]/g, "").length >= 5) {
+    return 500 + lineLast.length;
+  }
+  return 0;
+}
+
+function changeCustomerCandidates(change) {
+  const type = String(change?.type || "").toUpperCase();
+  const payload = change?.payload_json || {};
+  if (type === "NEW_INSTALL") {
+    const line = payload.new_line || payload;
+    return [line.system_name, line.customer, line.customer_name].filter(Boolean);
+  }
+  if (type === "LINE_MOVE") {
+    const next = payload.new_z || {};
+    const snap = payload.snapshot || {};
+    return [next.system_name, next.customer, next.customer_name, snap.system_name, snap.customer].filter(Boolean);
+  }
+  if (type === "PATH_MOVE") {
+    return [payload.line_a_customer, payload.line_b_customer].filter(Boolean);
+  }
+  return [];
+}
+
+function syntheticRestrictionTarget(change) {
+  const type = String(change?.type || "").toUpperCase();
+  const payload = change?.payload_json || {};
+  const selected = type === "NEW_INSTALL"
+    ? (payload.new_line || payload)
+    : (type === "LINE_MOVE" ? (payload.new_z || {}) : {});
+  return {
+    change_id: Number(change.id),
+    change_type: type,
+    target_role: type === "NEW_INSTALL" ? "new_line" : (type === "LINE_MOVE" ? "new_z" : "customer_name"),
+    patchpanel_id: selected.customer_patchpanel_id || null,
+    instance_id: selected.customer_patchpanel_instance_id || null,
+    room: selected.customer_room || selected.room || null,
+    rack_label: selected.rack_code || selected.rack_label || null,
+    cage_no: selected.cage_no || null,
+    customer_match_source: "change_customer_name",
+  };
+}
+
+function resolveAffectedRestrictedCustomers(allRestricted, serverAffected, changes) {
+  const byId = new Map();
+  for (const customer of allRestricted || []) {
+    if (!customer?.access_restricted && customer?.access_restricted !== undefined) continue;
+    byId.set(Number(customer.id), {
+      ...customer,
+      id: Number(customer.id),
+      affected_targets: [],
+    });
+  }
+  for (const customer of serverAffected || []) {
+    const id = Number(customer.id);
+    const current = byId.get(id) || { ...customer, id, affected_targets: [] };
+    current.restriction_type = customer.restriction_type || current.restriction_type;
+    current.affected_targets = Array.isArray(customer.affected_targets)
+      ? [...customer.affected_targets]
+      : (Array.isArray(customer.affected_patchpanels) ? [...customer.affected_patchpanels] : []);
+    byId.set(id, current);
+  }
+
+  for (const change of changes || []) {
+    const type = String(change.type || "").toUpperCase();
+    const status = String(change.status || "planned").toLowerCase();
+    if (!["NEW_INSTALL", "LINE_MOVE", "PATH_MOVE"].includes(type)) continue;
+    if (!["planned", "in_progress"].includes(status)) continue;
+
+    for (const lineCustomer of changeCustomerCandidates(change)) {
+      let best = null;
+      let bestScore = 0;
+      for (const customer of byId.values()) {
+        const score = customerMatchScore(lineCustomer, customer.name);
+        if (score > bestScore) { best = customer; bestScore = score; }
+      }
+      if (!best) continue;
+      if (!best.affected_targets.some(target => Number(target.change_id) === Number(change.id))) {
+        best.affected_targets.push(syntheticRestrictionTarget(change));
+      }
+    }
+  }
+  return [...byId.values()].filter(customer => customer.affected_targets.length > 0);
+}
+
 function buildRestrictionIndexes(restrictedCustomers, requests) {
   const customerMap = new Map();
   const changeMap = new Map();
@@ -2471,7 +2577,16 @@ async function loadAccessPanel() {
 
   try {
     const data = await apiJson(`${API_ACCESS}/kw/${plan.id}`);
-    const restricted = data.restricted_customers || [];
+    let allRestricted = data.all_restricted_customers;
+    if (!Array.isArray(allRestricted)) {
+      const customerData = await apiJson(`${API_ACCESS}/customers`);
+      allRestricted = (customerData.items || []).filter(customer => customer.access_restricted);
+    }
+    const restricted = resolveAffectedRestrictedCustomers(
+      allRestricted,
+      data.restricted_customers || [],
+      state.changes,
+    );
     const requests = data.requests || [];
 
     const indexes = buildRestrictionIndexes(restricted, requests);
