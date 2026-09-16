@@ -32,7 +32,7 @@ engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,
     connect_args=connect_args,
-    echo=True, 
+    echo=False,
 )
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)

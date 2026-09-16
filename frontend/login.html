@@ -703,6 +703,7 @@
             const loading = document.getElementById('loading');
             const loginBtn = document.getElementById('loginBtn');
 
+            if (loginBtn.disabled) return;
             loading.style.display = 'block';
             loginBtn.disabled = true;
             loginBtn.style.opacity = '.6';
@@ -716,59 +717,25 @@
                 });
 
                 if (!res.ok) {
-                    const msg = await res.text();
-                    throw new Error(msg || 'Login fehlgeschlagen');
+                    throw new Error(res.status === 401
+                        ? 'Falscher Benutzername oder Passwort'
+                        : `Anmeldung fehlgeschlagen (HTTP ${res.status}). Bitte erneut versuchen.`);
                 }
 
                 const data = await res.json();
                 const token = data?.access_token;
                 if (!token) throw new Error('Kein Token erhalten');
 
-                if (remember) {
-                    localStorage.setItem('rememberLogin', 'true');
-                    localStorage.setItem('username', username);
-                    localStorage.setItem('authToken', token);
-                } else {
-                    sessionStorage.setItem('username', username);
-                    sessionStorage.setItem('authToken', token);
-                    localStorage.removeItem('rememberLogin');
-                }
-
                 const role = data?.role || 'viewer';
                 const permissions = Array.isArray(data?.permissions) ? data.permissions : [];
                 const forcePasswordChange = !!data?.force_password_change;
-                if (remember) {
-                    localStorage.setItem('userRole', role);
-                    localStorage.setItem('userPermissions', JSON.stringify(permissions));
-                } else {
-                    sessionStorage.setItem('userRole', role);
-                    sessionStorage.setItem('userPermissions', JSON.stringify(permissions));
-                    localStorage.removeItem('userRole');
-                }
-                localStorage.setItem('isLoggedIn', 'true');
-                localStorage.setItem('loginAt', new Date().toISOString());
+                window.saveAuthSession({ token, username, role, permissions, forcePasswordChange, remember });
 
                 // Check if password change is required
                 if (forcePasswordChange) {
-                    // Store token temporarily for the password change request
-                    sessionStorage.setItem('authToken', token);
-                    sessionStorage.setItem('username', username);
-                    if (remember) {
-                        localStorage.setItem('authToken', token);
-                        localStorage.setItem('username', username);
-                    }
-
                     loading.innerHTML = '<i class="fas fa-key" style="color:#f59e0b;"></i> Passwortaenderung erforderlich...';
                     setTimeout(function () { showPasswordChangeDialog(token); }, 600);
                     return;
-                }
-
-                if (remember) {
-                    localStorage.setItem('username', username);
-                    localStorage.setItem('authToken', token);
-                } else {
-                    sessionStorage.setItem('username', username);
-                    sessionStorage.setItem('authToken', token);
                 }
 
                 // Success animation
@@ -780,7 +747,9 @@
                 setTimeout(() => { window.location.href = 'dashboard.html'; }, 600);
 
             } catch (err) {
-                errorText.textContent = 'Falscher Benutzername oder Passwort';
+                errorText.textContent = err instanceof TypeError
+                    ? 'Server nicht erreichbar. Bitte Netzwerk und Serveradresse pruefen.'
+                    : err.message;
                 errorMessage.style.display = 'block';
                 loading.style.display = 'none';
                 loginBtn.disabled = false;
@@ -793,17 +762,46 @@
         });
 
         window.addEventListener('DOMContentLoaded', async function() {
-            const hasToken = !!(localStorage.getItem('authToken') || sessionStorage.getItem('authToken'));
-            if (hasToken) {
-                window.location.href = 'dashboard.html';
-            }
-
             if (localStorage.getItem('rememberLogin') === 'true') {
                 const savedUser = localStorage.getItem('username');
                 if (savedUser) {
                     document.getElementById('username').value = savedUser;
                     document.getElementById('remember').checked = true;
                 }
+            }
+
+            const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+            if (!token) return;
+            const loginBtn = document.getElementById('loginBtn');
+            loginBtn.disabled = true;
+            try {
+                const res = await fetch(`${API_ORIGIN}/auth/me`);
+                if (res.status === 401) return;
+                if (res.status === 403) {
+                    window.clearAuthSession();
+                    throw new Error('Der Benutzer ist deaktiviert. Bitte an einen Administrator wenden.');
+                }
+                if (!res.ok) throw new Error(`Sitzung konnte nicht geprueft werden (HTTP ${res.status}).`);
+                const user = await res.json();
+                if ((localStorage.getItem('authToken') || sessionStorage.getItem('authToken')) !== token) return;
+                window.saveAuthSession({
+                    token, username: user.username, role: user.role, permissions: user.permissions,
+                    forcePasswordChange: user.force_password_change,
+                    remember: localStorage.getItem('rememberLogin') === 'true',
+                    loginAt: localStorage.getItem('loginAt') || sessionStorage.getItem('loginAt') || undefined,
+                });
+                if (user.force_password_change) {
+                    showPasswordChangeDialog(token);
+                } else {
+                    window.location.href = 'dashboard.html';
+                }
+            } catch (err) {
+                document.getElementById('errorText').textContent = err instanceof TypeError
+                    ? 'Server nicht erreichbar. Bitte Netzwerk und Serveradresse pruefen.'
+                    : err.message;
+                document.getElementById('errorMessage').style.display = 'block';
+            } finally {
+                loginBtn.disabled = false;
             }
         });
 
@@ -911,23 +909,15 @@
 
                     const result = await res.json();
 
-                    // Update token if a new one was issued
-                    if (result.access_token) {
-                        const remember = localStorage.getItem('rememberLogin') === 'true';
-                        if (remember) {
-                            localStorage.setItem('authToken', result.access_token);
-                        } else {
-                            sessionStorage.setItem('authToken', result.access_token);
-                        }
-                        if (result.role) {
-                            if (remember) localStorage.setItem('userRole', result.role);
-                            else sessionStorage.setItem('userRole', result.role);
-                        }
-                        if (result.permissions) {
-                            if (remember) localStorage.setItem('userPermissions', JSON.stringify(result.permissions));
-                            else sessionStorage.setItem('userPermissions', JSON.stringify(result.permissions));
-                        }
-                    }
+                    window.saveAuthSession({
+                        token: result.access_token || authToken,
+                        username: localStorage.getItem('username') || sessionStorage.getItem('username'),
+                        role: result.role || window.getCurrentRole(),
+                        permissions: result.permissions || JSON.parse(localStorage.getItem('userPermissions') ||
+                            sessionStorage.getItem('userPermissions') || '[]'),
+                        remember: localStorage.getItem('rememberLogin') === 'true',
+                        loginAt: localStorage.getItem('loginAt') || sessionStorage.getItem('loginAt') || undefined,
+                    });
 
                     loading.innerHTML = '<i class="fas fa-check-circle" style="color:#4ade80;"></i> Passwort geaendert!';
                     loginCard.style.animation = 'successFlash .6s ease';

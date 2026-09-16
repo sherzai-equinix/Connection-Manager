@@ -31,7 +31,7 @@ local   connection_manager_pgadmin_data
 
 ```
 services:
-  db          – PostgreSQL 15 mit persistentem Volume
+  db          – PostgreSQL 17 mit persistentem Volume
   backend     – FastAPI App, verbindet sich zu db:5432/devicedb
   pgadmin     – pgAdmin 4 mit persistentem Volume
 ```
@@ -51,7 +51,7 @@ Alter Stack mit `restoredb` (cm_postgres_restore) muss noch laufen.
 1. **Migrationsscript auf dem Docker-Host ausführen:**
 
    ```bash
-   bash scripts/migrate_to_persistent_db.sh
+   bash scripts/archive/migrate_to_persistent_db.sh
    ```
 
    Das Script:

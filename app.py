@@ -175,7 +175,11 @@ app.include_router(collaboration_router)
 # ------------------------------------------------------------
 from routers.cross_connects import export_cross_connects_xlsx as _cc_export_fn
 
-@app.get(f"{settings.api_prefix}/cross_connects/export", include_in_schema=False)
+@app.get(
+    f"{settings.api_prefix}/cross_connects/export",
+    include_in_schema=False,
+    dependencies=rbac_deps,
+)
 def cc_export_alias(
     status: str = "active",
     q: str = None,
