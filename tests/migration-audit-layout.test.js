@@ -35,5 +35,5 @@ test("audit cards include location and customer patchpanel context", () => {
   assert.match(source, /function _auditLocation\(it\)/);
   assert.match(source, /A-Raum/);
   assert.match(source, /K\.PP/);
-  assert.match(source, /it\.customer_name \|\| it\.customer/);
+  assert.match(source, /return systemName \|\| it\.customer_name/);
 });
