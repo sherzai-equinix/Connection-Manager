@@ -197,12 +197,16 @@
        path readable without forcing every field into a wide table. */
     .audit-line-list { display: flex; flex-direction: column; gap: 8px; padding: 10px; }
     .audit-line-card { border: 1px solid var(--border, #333); border-radius: 12px; overflow: hidden; background: var(--surface-2, #23262b); }
-    .audit-line-summary { display: grid; grid-template-columns: 28px minmax(100px,.7fr) minmax(150px,1.4fr) minmax(260px,2.5fr) minmax(150px,1fr) auto; gap: 12px; align-items: center; padding: 11px 14px; cursor: pointer; }
+    .audit-line-summary { display: grid; grid-template-columns: minmax(100px,.7fr) minmax(150px,1.4fr) minmax(260px,2.5fr) minmax(170px,1fr) minmax(150px,1fr) auto; gap: 12px; align-items: center; padding: 11px 14px; }
     .audit-line-summary:hover { background: rgba(59,130,246,.08); }
     .audit-line-chevron { color: #93c5fd; transition: transform .15s; }
     .audit-line-chevron.open { transform: rotate(90deg); }
     .audit-line-serial { font-weight: 800; color: var(--text, #e2e8f0); }
     .audit-line-customer { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .audit-line-problem { min-width: 0; }
+    .audit-problem-note { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 8px; border-radius: 6px; font-size: .72rem; font-weight: 700; }
+    .audit-problem-note.ok { color: #6ee7b7; background: rgba(16,185,129,.12); }
+    .audit-problem-note.warning { color: #fbbf24; background: rgba(245,158,11,.13); }
     .audit-line-meta { color: var(--text-muted, #94a3b8); font-size: .72rem; margin-top: 2px; }
     .audit-line-path { display: flex; align-items: stretch; gap: 6px; min-width: 0; }
     .audit-path-node { flex: 1 1 0; min-width: 0; padding: 6px 8px; border-radius: 7px; border: 1px solid rgba(148,163,184,.2); background: rgba(148,163,184,.06); }
@@ -224,8 +228,8 @@
     .audit-check-list li.ok { color: #6ee7b7; }
     .audit-line-actions { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
     @media (max-width: 1000px) {
-      .audit-line-summary { grid-template-columns: 24px 1fr auto; }
-      .audit-line-path, .audit-line-customer { grid-column: 2 / -1; }
+      .audit-line-summary { grid-template-columns: 1fr auto; }
+      .audit-line-path, .audit-line-customer, .audit-line-problem { grid-column: 1 / -1; }
       .audit-detail-grid { grid-template-columns: 1fr; }
       .audit-line-detail { padding-left: 14px; }
     }

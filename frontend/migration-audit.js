@@ -68,7 +68,6 @@ let currentView = "current"; // "current" = deduplicated, "all" = full history
 let allItems = [];
 let catItems = { 0: [], 1: [], 2: [] };
 let catPages = { 0: 1, 1: 1, 2: 1 };
-const expandedAuditLines = new Set();
 // Start with every audit category closed so users open only what they need.
 let catCollapsed = { 0: true, 1: true, 2: true };
 const auditFilters = { room:'', switch:'', bb_out_pp:'', serial:'', k_pp:'' };
@@ -313,16 +312,6 @@ function _auditCustomer(it) {
   return systemName || it.customer_name || it.customer || it.logical_name || "Kunde nicht zugeordnet";
 }
 
-function _auditLocation(it) {
-  const parts = [
-    it.room ? `A-Raum ${it.room}` : "",
-    it.rack_code ? `Rack ${it.rack_code}` : "",
-    it.z_pp_number || it.z_pp_raw ? `K.PP ${it.z_pp_number || it.z_pp_raw}` : "",
-    it.z_port_label ? `Port ${it.z_port_label}` : "",
-  ].filter(Boolean);
-  return parts.join(" · ") || "Standort / Patchpanel nicht erfasst";
-}
-
 function _auditNode(kind, value, port, tone) {
   return `<div class="audit-path-node ${tone}">
     <div class="audit-path-kind">${esc(kind)}</div>
@@ -331,36 +320,16 @@ function _auditNode(kind, value, port, tone) {
   </div>`;
 }
 
-function _auditChecks(it) {
-  const checks = [];
-  const add = (label, ok) => checks.push(`<li class="${ok ? "ok" : "problem"}">${ok ? "✓" : "!"} ${label}</li>`);
-  const aPP = it.a_pp_number || it.a_pp_raw;
-  const aPort = it.a_port_label;
-  const bbIn = it.backbone_in_instance_id || it.pp1_raw || it.pp1_number;
-  const bbOut = it.backbone_out_instance_id || it.pp2_raw || it.pp2_number;
-  const zPP = it.z_pp_number || it.z_pp_raw;
-  const zPort = it.z_port_label;
-  add("RFRA / A-PP und Port vollständig", Boolean(aPP && aPort));
-  add("BB IN und BB OUT zugeordnet", Boolean(bbIn && bbOut));
-  add("Kunden-Patchpanel und Port vollständig", Boolean(zPP && zPort));
-  add(`Serial ${it.serial_number ? "vorhanden" : "fehlt"}`, Boolean(it.serial_number));
-  add(`Konfliktprüfung ${it.conflict_category ? "erforderlich" : "ohne offenen Konflikt"}`, !it.conflict_category);
-  return checks.join("");
-}
-
-function _auditProblemHtml(it) {
+function _auditProblemNote(it) {
   const conflicts = [...(it.a_conflicts || []), ...(it.z_conflicts || [])];
-  const problem = conflicts.length
-    ? conflicts.map(c => `<div class="conflict-chip ${c === (it.a_conflicts || [])[0] ? "a-side" : "z-side"}">${esc(c.msg || "Konflikt")} ${c.serial ? `<span class="conflict-detail">Serial: ${esc(c.serial)}</span>` : ""}</div>`).join("")
-    : `<span class="badge" style="background:rgba(16,185,129,.15);color:#6ee7b7;">Keine Konfliktmeldung</span>`;
-  return `<div class="audit-detail-grid">
-    <div class="audit-detail-box"><div class="audit-detail-title">Problem dieser Leitung</div>${problem}</div>
-    <div class="audit-detail-box"><div class="audit-detail-title">Was muss geprüft werden?</div><ul class="audit-check-list">${_auditChecks(it)}</ul></div>
-  </div>`;
+  if (!conflicts.length) {
+    return `<span class="audit-problem-note ok">Keine Konfliktmeldung</span>`;
+  }
+  return `<span class="audit-problem-note warning" title="${esc(conflicts.map(c => c.msg || "Konflikt").join(" · "))}">`
+    + `${conflicts.length} Problem${conflicts.length === 1 ? "" : "e"} · Prüfung nötig</span>`;
 }
 
 function _auditLineCard(it, isAdmin) {
-  const open = expandedAuditLines.has(Number(it.id));
   const id = Number(it.id);
   const aPP = it.a_pp_number || it.a_pp_raw;
   const bbIn = it.backbone_in_instance_id || it.pp1_raw || it.pp1_number;
@@ -370,10 +339,9 @@ function _auditLineCard(it, isAdmin) {
     ${currentStatus === "imported" ? `<button class="btn btn-sm btn-outline-primary" data-action="edit" data-id="${id}">Audit</button>` : ""}
     <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${id}" title="Leitung loeschen">&#128465;</button>` : "";
   return `<article class="audit-line-card" data-audit-line="${id}">
-    <div class="audit-line-summary" data-action="toggle-line" data-id="${id}" role="button" tabindex="0" aria-expanded="${open}">
-      <span class="audit-line-chevron ${open ? "open" : ""}">&#9654;</span>
+    <div class="audit-line-summary">
       <div><div class="audit-line-serial">${esc(it.serial_number || `ID ${id}`)}</div><div class="audit-line-meta">ID ${id} · ${esc(it.event_type || "Install")}</div></div>
-      <div class="audit-line-customer" title="${esc(_auditCustomer(it))}"><strong>${esc(_auditCustomer(it))}</strong><div class="audit-line-meta">${esc(_auditLocation(it))}</div></div>
+      <div class="audit-line-customer" title="${esc(_auditCustomer(it))}"><strong>${esc(_auditCustomer(it))}</strong></div>
       <div class="audit-line-path">
         ${_auditNode("RFRA / A-PP", aPP || it.switch_name, it.a_port_label || it.switch_port, "rfra")}
         <span class="audit-path-arrow">→</span>
@@ -383,10 +351,10 @@ function _auditLineCard(it, isAdmin) {
         <span class="audit-path-arrow">→</span>
         ${_auditNode("Kunde / PP", zPP, it.z_port_label, "customer")}
       </div>
+      <div class="audit-line-problem">${_auditProblemNote(it)}</div>
       <div>${_buildEventBadge(it.event_type || "Install")}<div class="audit-line-meta">${it.conflict_category ? "Prüfung offen" : "Bereit"}</div></div>
       <div class="audit-line-actions">${actions}</div>
     </div>
-    <div class="audit-line-detail ${open ? "open" : ""}" data-detail-for="${id}">${_auditProblemHtml(it)}</div>
   </article>`;
 }
 
@@ -413,21 +381,6 @@ function _renderCatTable(cat) {
   }
   tbody.innerHTML = html;
 
-  tbody.querySelectorAll("[data-action='toggle-line']").forEach(btn => {
-    const toggle = () => {
-      const id = Number(btn.dataset.id);
-      if (expandedAuditLines.has(id)) expandedAuditLines.delete(id);
-      else expandedAuditLines.add(id);
-      _renderCatTable(cat);
-    };
-    btn.addEventListener("click", (event) => {
-      if (event.target.closest("button")) return;
-      toggle();
-    });
-    btn.addEventListener("keydown", event => {
-      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggle(); }
-    });
-  });
   if (isAdmin) {
     tbody.querySelectorAll("button[data-action='edit']").forEach(btn => {
       btn.addEventListener("click", () => openEdit(Number(btn.dataset.id)));
