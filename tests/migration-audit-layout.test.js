@@ -11,6 +11,8 @@ test("migration audit uses compact line lists for every conflict category", () =
   assert.match(html, /\.audit-line-summary/);
   assert.match(html, /\.audit-line-path/);
   assert.match(source, /_auditProblemNote/);
+  assert.match(html, /id="auditProblemBg"/);
+  assert.match(html, /id="btnAuditProblemClose"/);
   assert.doesNotMatch(source, /data-action="toggle-line"/);
 });
 
