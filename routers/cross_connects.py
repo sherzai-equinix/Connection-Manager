@@ -1,12 +1,14 @@
 # routers/cross_connects.py
 import io
 from datetime import date, datetime, timedelta
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Path
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
+from sqlalchemy.exc import SQLAlchemyError
 
 from config import settings
 from database import get_db
@@ -104,17 +106,27 @@ def _ensure_cc_columns(db: Session) -> None:
 
 def _pending_status_overrides(db: Session) -> dict[int, str]:
     try:
-        rows = db.execute(
-            text(
-                """
-                SELECT id, type, status, line_id, line1_id, line2_id, created_at
-                FROM public.kw_tasks
-                WHERE status IN ('pending_install', 'pending_deinstall', 'pending_move', 'pending_path_move')
-                ORDER BY created_at DESC, id DESC
-                """
-            )
-        ).mappings().all()
-    except Exception:
+        # A missing legacy task table must not abort the subsequent list queries.
+        with db.begin_nested():
+            rows = db.execute(
+                text(
+                    """
+                    SELECT id, type, status, line_id, line1_id, line2_id, created_at
+                    FROM public.kw_tasks
+                    WHERE status IN ('pending_install', 'pending_deinstall', 'pending_move', 'pending_path_move')
+                    ORDER BY created_at DESC, id DESC
+                    """
+                )
+            ).mappings().all()
+    except SQLAlchemyError as exc:
+        missing_table = getattr(exc.orig, "pgcode", None) == "42P01"
+        if db.get_bind().dialect.name == "sqlite":
+            missing_table = str(exc.orig) == "no such table: public.kw_tasks"
+        if not missing_table:
+            raise
+        logging.getLogger(__name__).warning(
+            "Optional kw_tasks table is missing; pending status overrides are unavailable"
+        )
         return {}
 
     overrides: dict[int, str] = {}
@@ -498,6 +510,7 @@ def list_cross_connects(
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
 ):
+    """Count and page matching effective statuses, including pending task overrides."""
     allowed_status = {
         "active",
         "pending_serial",
@@ -547,30 +560,52 @@ def list_cross_connects(
             )
         """)
 
-    where_sql = "WHERE " + " AND ".join(where) if where else ""
-
-    list_q = text(f"""
-        SELECT *
-        FROM public.cross_connects
-        {where_sql}
-        ORDER BY created_at DESC
-        LIMIT 5000;
-    """)
-
     try:
-        rows = db.execute(list_q, params).mappings().all()
-        items = [_swap_backbone_fields(dict(r)) for r in rows]
         overrides = _pending_status_overrides(db)
+        status_bindings = []
+        if status != "all":
+            params["status"] = status
+            status_sql = "LOWER(COALESCE(status, '')) = :status"
+            overridden_ids = [line_id for line_id in overrides if line_id]
+            if status != "deinstalled" and overridden_ids:
+                # Filter by the displayed status, not the stored status, before paging.
+                params["overridden_ids"] = overridden_ids
+                status_bindings.append(bindparam("overridden_ids", expanding=True))
+                status_sql = f"({status_sql} AND id NOT IN :overridden_ids)"
+                matching_ids = [
+                    line_id for line_id in overridden_ids if overrides[line_id] == status
+                ]
+                if matching_ids:
+                    params["matching_ids"] = matching_ids
+                    status_bindings.append(bindparam("matching_ids", expanding=True))
+                    status_sql = f"""(
+                        {status_sql} OR (
+                            LOWER(COALESCE(status, '')) <> 'deinstalled'
+                            AND id IN :matching_ids
+                        )
+                    )"""
+            where.append(status_sql)
+
+        where_sql = "WHERE " + " AND ".join(where) if where else ""
+        count_q = text(f"""
+            SELECT COUNT(*) FROM public.cross_connects {where_sql}
+        """).bindparams(*status_bindings)
+        total = db.execute(count_q, params).scalar_one()
+        list_q = text(f"""
+            SELECT *
+            FROM public.cross_connects
+            {where_sql}
+            ORDER BY created_at DESC, id DESC
+            LIMIT :limit OFFSET :offset
+        """).bindparams(*status_bindings)
+        rows = db.execute(
+            list_q, {**params, "limit": limit, "offset": offset}
+        ).mappings().all()
+        items = [_swap_backbone_fields(dict(r)) for r in rows]
         for item in items:
             line_id = int(item.get("id") or 0)
             if line_id and line_id in overrides and str(item.get("status") or "").lower() != "deinstalled":
                 item["status"] = overrides[line_id]
-
-        if status != "all":
-            items = [x for x in items if str(x.get("status") or "").lower() == status]
-
-        total = len(items)
-        items = items[offset:offset + limit]
 
         return {"success": True, "total": total, "items": items}
 

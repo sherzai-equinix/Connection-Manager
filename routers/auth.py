@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from audit import write_audit_log
@@ -20,6 +23,7 @@ from security import (
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 
 class LoginIn(BaseModel):
@@ -70,8 +74,8 @@ def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
                     endpoint=str(request.url.path),
                     ip=(request.client.host if request.client else None),
                 )
-        except Exception:
-            pass
+        except SQLAlchemyError:
+            logger.exception("Failed to record unsuccessful login")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
@@ -83,10 +87,11 @@ def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
         user_id=user["id"],
     )
     perms = sorted(get_effective_permissions(db, user))
+    # Persist any legacy password upgrade before the optional login audit.
+    db.commit()
 
     # Update last_login
     try:
-        db.rollback()
         with db.begin():
             db.execute(
                 text("UPDATE public.users_new SET last_login = NOW() WHERE id = :id"),
@@ -103,8 +108,8 @@ def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
                 endpoint=str(request.url.path),
                 ip=(request.client.host if request.client else None),
             )
-    except Exception:
-        pass
+    except SQLAlchemyError:
+        logger.exception("Failed to record successful login")
 
     return {
         "access_token": token,
@@ -160,8 +165,8 @@ def change_password(
                 endpoint=str(request.url.path),
                 ip=(request.client.host if request.client else None),
             )
-    except Exception:
-        pass
+    except SQLAlchemyError:
+        logger.exception("Failed to record password change")
 
     # Issue new token after password change
     token = create_access_token(

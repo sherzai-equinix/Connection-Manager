@@ -181,7 +181,7 @@
     const username = localStorage.getItem('username') || sessionStorage.getItem('username') || 'Gast';
     const role = localStorage.getItem('userRole') || sessionStorage.getItem('userRole') || 'viewer';
 
-    const loginAtIso = localStorage.getItem('loginAt');
+    const loginAtIso = localStorage.getItem('loginAt') || sessionStorage.getItem('loginAt');
     let loginAtText = '—';
     if (loginAtIso) {
       const d = new Date(loginAtIso);
@@ -215,12 +215,14 @@
       const themeTitle = (localStorage.getItem('theme') || 'dark') === 'light' ? 'Dark Mode' : 'Light Mode';
       userBox.innerHTML = `
         <div style="display:flex; flex-direction:column; line-height:1.05;">
-          <span class="ub-name">${nameText}</span>
-          <span class="ub-role">${roleText}</span>
+          <span class="ub-name"></span>
+          <span class="ub-role"></span>
         </div>
         <button class="theme-toggle-btn" type="button" title="${themeTitle}">${themeIcon}</button>
         <button class="ub-logout" type="button" data-action="logout">Logout</button>
       `;
+      userBox.querySelector('.ub-name').textContent = nameText;
+      userBox.querySelector('.ub-role').textContent = roleText;
       userBox.querySelector('.theme-toggle-btn').addEventListener('click', toggleTheme);
     }
 
@@ -239,19 +241,16 @@
 }
 
   function logout() {
-    const savedTheme = localStorage.getItem('theme');
-    localStorage.removeItem('authToken');
-    sessionStorage.removeItem('authToken');
-    localStorage.clear();
-    sessionStorage.clear();
-    if (savedTheme) localStorage.setItem('theme', savedTheme);
+    window.clearAuthSession();
     window.location.href = 'login.html';
   }
 
   document.addEventListener('DOMContentLoaded', () => {
     // Protect pages (except login)
     if (!String(window.location.pathname).endsWith('login.html')) {
-      if (!isLoggedIn()) {
+      const forcePasswordChange = localStorage.getItem('forcePasswordChange') ||
+        sessionStorage.getItem('forcePasswordChange');
+      if (!isLoggedIn() || forcePasswordChange === 'true') {
         window.location.href = 'login.html';
         return;
       }

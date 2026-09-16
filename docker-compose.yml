@@ -10,7 +10,7 @@ services:
     volumes:
       - cm_pgdata:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - "${DB_PORT:-127.0.0.1:5433}:5432"
     networks:
       - cm_net
     restart: unless-stopped

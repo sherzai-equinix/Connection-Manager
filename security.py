@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, Set
@@ -11,6 +12,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy import text
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
 
 from config import settings
@@ -18,6 +20,7 @@ from database import get_db
 from audit import write_audit_log
 
 
+logger = logging.getLogger(__name__)
 JWT_ALGORITHM = "HS256"
 DEFAULT_EXPIRE_HOURS = 8
 
@@ -197,26 +200,26 @@ def authenticate_user(db: Session, username: str, password: str) -> Dict[str, An
 
 def _active_permission_grants(db: Session, user_id: int) -> Set[str]:
     try:
-        rows = db.execute(
-            text(
-                """
-                SELECT permission
-                FROM public.user_permission_grants
-                WHERE user_id = :uid
-                  AND revoked_at IS NULL
-                  AND (valid_from IS NULL OR valid_from <= NOW())
-                  AND (valid_until IS NULL OR NOW() < valid_until)
-                """
-            ),
-            {"uid": int(user_id)},
-        ).mappings().all()
+        # A missing legacy grants table must not roll back pending user changes.
+        with db.begin_nested():
+            rows = db.execute(
+                text(
+                    """
+                    SELECT permission
+                    FROM public.user_permission_grants
+                    WHERE user_id = :uid
+                      AND revoked_at IS NULL
+                      AND (valid_from IS NULL OR valid_from <= NOW())
+                      AND (valid_until IS NULL OR NOW() < valid_until)
+                    """
+                ),
+                {"uid": int(user_id)},
+            ).mappings().all()
         return {str(r.get("permission")).strip() for r in rows if r.get("permission")}
-    except Exception:
-        try:
-            db.rollback()
-        except Exception:
-            pass
-        # Table might not exist yet (before migrations). Fail closed to base permissions.
+    except ProgrammingError as exc:
+        if getattr(exc.orig, "pgcode", None) != "42P01":
+            raise
+        logger.warning("Permission grants table is missing; using base role permissions")
         return set()
 
 

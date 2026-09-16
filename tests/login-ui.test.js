@@ -15,8 +15,7 @@ test("login keeps the existing authentication contract", () => {
     assert.match(loginSource, new RegExp(`id="${id}"`));
   }
   assert.match(loginSource, /fetch\(`\$\{API_ORIGIN\}\/auth\/login`/);
-  assert.match(loginSource, /localStorage\.setItem\('authToken'/);
-  assert.match(loginSource, /sessionStorage\.setItem\('authToken'/);
+  assert.match(loginSource, /window\.saveAuthSession\(/);
   assert.match(loginSource, /showPasswordChangeDialog/);
 });
 

@@ -2,6 +2,8 @@
 
 FastAPI-Backend + Vanilla-JS-Frontend zur Verwaltung von Netzwerkverbindungen, Patchpanels, Cross-Connects und KW-Planung.
 
+Aktuelle Aenderungen und Hinweise zum Testen: [CHANGELOG.md](CHANGELOG.md).
+
 ---
 
 ## Services
@@ -9,8 +11,8 @@ FastAPI-Backend + Vanilla-JS-Frontend zur Verwaltung von Netzwerkverbindungen, P
 | Service     | Image / Build       | Interner Port | Default Host-Port |
 |-------------|---------------------|---------------|--------------------|
 | **backend** | Build aus `Dockerfile` | 8000          | 8082               |
-| **db**      | `postgres:17`       | 5432          | (nur intern)       |
-| **pgadmin** | `dpage/pgadmin4`    | 80            | 5051 (optional)    |
+| **db**      | `postgres:17`       | 5432          | `127.0.0.1:5433`  |
+| **pgadmin** | Build aus `Dockerfile.pgadmin` | 8080 | 5051             |
 
 ---
 
@@ -27,8 +29,9 @@ In Portainer werden sie unter **Environment Variables** beim Stack-Setup eingetr
 | `JWT_SECRET`        | ja      | –               | Geheimer Schluessel fuer JWT-Tokens   |
 | `JWT_EXPIRE_HOURS`  |         | `8`             | Token-Gueltigkeitsdauer in Stunden    |
 | `CORS_ORIGINS`      |         | `*`             | Erlaubte Origins (komma-separiert)    |
-| `API_PREFIX`        |         | `/api/v1`       | URL-Prefix fuer alle API-Routen       |
+| `API_PREFIX`        |         | `/api/v1`       | Fuer das mitgelieferte Frontend auf `/api/v1` belassen |
 | `BACKEND_PORT`      |         | `8082`          | Host-Port fuer das Backend            |
+| `DB_PORT`           |         | `127.0.0.1:5433` | Host-Adresse und Port fuer PostgreSQL |
 | `PGADMIN_EMAIL`     |         | `admin@local.dev` | pgAdmin Login-Email                |
 | `PGADMIN_PASSWORD`  |         | `admin`         | pgAdmin Login-Passwort                |
 | `PGADMIN_PORT`      |         | `5051`          | Host-Port fuer pgAdmin                |
@@ -54,20 +57,20 @@ In Portainer werden sie unter **Environment Variables** beim Stack-Setup eingetr
 
 Portainer baut das Backend-Image direkt aus dem Repo und startet alle Services.
 
-### pgAdmin aktivieren (optional)
+### pgAdmin
 
-pgAdmin laeuft im Compose-Profil `tools` und wird standardmaessig nicht gestartet.
-Um pgAdmin mitzustarten, entweder:
-- In Portainer den Service manuell starten, oder
-- Auf der VM: `docker compose --profile tools up -d`
+Der aktuelle Compose-Stack startet pgAdmin mit. Wenn du es nicht benoetigst,
+kannst du den Container in Portainer stoppen. Setze vor dem Deployment ein eigenes
+`PGADMIN_PASSWORD`, wenn pgAdmin erreichbar ist.
 
 ### Updates deployen
 
 1. Aenderungen lokal committen und nach GitHub pushen
-2. In Portainer: **Stacks** → Stack auswaehlen → **Editor** → **Update the stack** (mit "Re-pull image and redeploy" / "Force redeployment")
-3. Portainer baut das Backend-Image neu und startet die Container
+2. In Portainer den Repository-Branch des Stacks pruefen: Fuer ein Test-Update den veroeffentlichten Update-Branch auswaehlen, nicht automatisch `main`
+3. **Pull and redeploy** / **Update the stack** ausfuehren und das Backend-Image neu bauen lassen
 
 Die Datenbank bleibt dabei erhalten (persistentes Volume `cm_pgdata`).
+Keine Volumes loeschen und vor einem Update ein aktuelles Backup erstellen.
 
 ---
 
@@ -86,7 +89,7 @@ Die Datenbank bleibt dabei erhalten (persistentes Volume `cm_pgdata`).
 
 - PostgreSQL laeuft als eigener Container mit persistentem Docker-Volume (`cm_pgdata`)
 - Bei Redeploy / Update bleibt die DB bestehen
-- Kein automatischer Seed, Init oder Reset – produktive Daten sind sicher
+- Kein automatischer Datenbank-Reset oder Import. Beim Start werden fehlende ORM-Tabellen angelegt und bekannte doppelte PP-Praefixe bereinigt
 - SQL-Migrationsskripte liegen in `migrations/` und muessen bei Bedarf manuell ausgefuehrt werden
 - Vor der Erstmigration: bestehendes DB-Backup einspielen
 
@@ -114,7 +117,25 @@ cp .env.example .env        # Werte anpassen
 uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Frontend ueber Live Server oeffnen: `http://localhost:5500/frontend/login.html`
+Empfohlen: Frontend direkt ueber `http://127.0.0.1:8000/frontend/login.html` oeffnen.
+Es verwendet automatisch den Server, von dem es ausgeliefert wird; dies gilt auch
+fuer Test-VMs, andere Ports und HTTPS.
+
+Live Server unter `localhost` / `127.0.0.1` auf Port 5500 oder 5501 sowie `file://`
+verwenden fuer die API `http://127.0.0.1:8000`. Fuer getrennte Frontend-/Backend-Hosts
+kann `window.API_ORIGIN` in einem Script **vor** `config.js` gesetzt werden; der
+Backend-Server muss dann die Frontend-Origin per `CORS_ORIGINS` erlauben.
+
+### Automatisierte Regressionstests
+
+```bash
+pip install -r requirements-dev.txt
+node --test tests
+python -m unittest discover -s tests -p "test_*.py"
+```
+
+Die Tests verwenden synthetische Daten und keine produktive Datenbank.
+GitHub Actions fuehrt sie bei Pushes und Pull Requests aus.
 
 ---
 
@@ -155,6 +176,12 @@ requirements.txt        # Python-Abhaengigkeiten
 
 Diese Anleitung beschreibt, wie du den bestehenden Datenstand auf eine **neue, separate Test-Umgebung** uebertraegst, ohne die produktive Umgebung zu veraendern.
 
+**Wichtig:** Verwende mit dieser Compose-Datei einen **separaten Docker-Host / eine
+separate VM**. Container, Netzwerk und Volumes haben feste Namen; ein zweiter Stack
+auf demselben Host ist deshalb nicht automatisch isoliert und kann auf dieselben
+Datenbank-Volumes zugreifen. Restore-Befehle ausschliesslich auf dem Test-Host
+ausfuehren und das Ziel vorher kontrollieren.
+
 ### 1. Backup auf der aktuellen Umgebung erstellen
 
 Auf dem Server / PC, wo die aktuelle Datenbank laeuft:
@@ -190,7 +217,7 @@ Die Datei `devicedb_backup.dump` per SCP, USB, Netzlaufwerk o.ae. auf den Zielre
 | `JWT_SECRET`        | `test-geheimer-schluessel-xyz` |
 | `CORS_ORIGINS`      | `*`                            |
 | `BACKEND_PORT`      | `8082`                         |
-| `DB_PORT`           | `5433`                         |
+| `DB_PORT`           | `127.0.0.1:5433`                |
 
 6. **Deploy the stack**
 
@@ -210,7 +237,9 @@ docker exec -i cm_postgres pg_restore -U deviceapp -d devicedb --clean --if-exis
 cat devicedb_backup.sql | docker exec -i cm_postgres psql -U deviceapp devicedb
 ```
 
-**Option B – per `psql` direkt vom Firmen-PC (wenn DB_PORT gesetzt):**
+**Option B – per `psql` auf dem Test-Host (oder ueber einen SSH-Tunnel dorthin):**
+
+`DB_PORT` bindet PostgreSQL standardmaessig nur an localhost des Docker-Hosts.
 
 ```bash
 # Custom-Format:
@@ -233,13 +262,12 @@ Anmeldung mit den gleichen Benutzerdaten wie auf der produktiven Umgebung (komme
 
 ### 6. Bei Problemen zuruecksetzen
 
-Falls der Test-Stand nicht passt, einfach das Volume loeschen und neu importieren:
+Falls nur der neue Code nicht passt, stelle in Portainer den vorherigen
+Repository-Stand wieder ein und redeploye **ohne** Volume-Loeschung.
 
-```bash
-docker compose down -v     # Entfernt Volume cm_pgdata
-docker compose up -d       # Startet frisch
-# Dann erneut Backup importieren (Schritt 4)
-```
+Nur wenn du auch die Testdaten zuruecksetzen willst: Ziel-Host und Datenbank
+kontrollieren, Testdaten sichern und das Backup aus Schritt 4 erneut einspielen.
+Kein `docker compose down -v` auf einem Host mit produktiven Volumes verwenden.
 
 ### 7. Spaeter: Umstellung auf Produktion
 

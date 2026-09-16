@@ -1,0 +1,3 @@
+-r requirements.txt
+# FastAPI 0.104 / Starlette 0.27 TestClient requires httpx before 0.25.
+httpx==0.24.1

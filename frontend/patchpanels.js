@@ -30,8 +30,8 @@ const $ = id => document.getElementById(id);
 const esc = v => String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 function toast(m,t="info"){const w=$("toastWrap");if(!w)return;const e=document.createElement("div");e.className=`toast ${t}`;e.textContent=m;w.appendChild(e);setTimeout(()=>e.remove(),3400);}
 function setStatus(m){const s=$("ppStatus");if(s) s.textContent=m||"";}
-async function api(u){const r=await fetch(u);const d=await r.json().catch(()=>({}));if(!r.ok) throw new Error(d?.detail||`HTTP ${r.status}`);return d;}
-async function apiPost(u,b){const r=await fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});const d=await r.json().catch(()=>({}));if(!r.ok) throw new Error(d?.detail||`HTTP ${r.status}`);return d;}
+async function api(u,init){const r=await fetch(u,init);const d=await r.json().catch(()=>({}));if(!r.ok) throw new Error(d?.detail||`HTTP ${r.status}`);return d;}
+async function apiPost(u,b){return api(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});}
 
 function cassLabel(n){
   n=Number(n||0);if(!Number.isFinite(n)||n<1) return "-";
@@ -414,7 +414,7 @@ function renderCassettes(slot){
       if(!confirm(`Kassette ${cassSlot} wirklich freigeben? Alle 6 Ports werden auf „frei" gesetzt.`)) return;
       b.disabled=true; b.textContent="⏳ …";
       try{
-        await fetch(`${API}/${st2.id}/cassette/${cassSlot}/release`,{method:"PUT",headers:{"Content-Type":"application/json"}});
+        await api(`${API}/${st2.id}/cassette/${cassSlot}/release`,{method:"PUT",headers:{"Content-Type":"application/json"}});
         toast(`Kassette ${cassSlot} freigegeben!`,"success");
         await loadSlot(sl,st2.id);
       }catch(e){toast(`Fehler: ${e.message}`,"error");b.disabled=false;b.textContent="🔓 Freigeben";}
@@ -429,7 +429,7 @@ function renderCassettes(slot){
       if(!confirm(`Kassette ${cassSlot} wirklich sperren? Alle freien Ports werden auf „nicht verfügbar" gesetzt.`)) return;
       b.disabled=true; b.textContent="⏳ …";
       try{
-        await fetch(`${API}/${st2.id}/cassette/${cassSlot}/lock`,{method:"PUT",headers:{"Content-Type":"application/json"}});
+        await api(`${API}/${st2.id}/cassette/${cassSlot}/lock`,{method:"PUT",headers:{"Content-Type":"application/json"}});
         toast(`Kassette ${cassSlot} gesperrt.`,"success");
         await loadSlot(sl,st2.id);
       }catch(e){toast(`Fehler: ${e.message}`,"error");b.disabled=false;b.textContent="🔒";}

@@ -448,6 +448,7 @@ def list_audit_lines(
 
     view=current (default): only the latest state per circuit (grouped by serial/product_id).
     view=all: show every imported row (legacy behaviour).
+    Totals and page counts describe the selected view; dedup retains the raw row count.
     """
 
     if status not in {"imported", "audited", "needs_review", "rejected"}:
@@ -457,13 +458,6 @@ def list_audit_lines(
 
     has_ln = has_column(db, "migration_audit_lines", "logical_name")
     ln_sel = ", logical_name" if has_ln else ", NULL::text AS logical_name"
-
-    # Get total count
-    total_row = db.execute(
-        text("SELECT COUNT(*) AS cnt FROM public.migration_audit_lines WHERE audit_status = :st"),
-        {"st": status},
-    ).mappings().first()
-    total = int(total_row["cnt"]) if total_row else 0
 
     rows = db.execute(
         text(
