@@ -2,6 +2,9 @@
 
 ## 2026-09-16 - Migration Audit Leitungsansicht
 
+- Kundennamen werden vollständig aus dem Audit-Datensatz angezeigt; Raum,
+  Rack, Kunden-Patchpanel und Port stehen direkt darunter. Dadurch bleiben
+  gleichnamige Kunden wie zwei `XR` in verschiedenen Räumen eindeutig.
 - Migration Audit verwendet jetzt kompakte, einklappbare Leitungskarten im Stil
   der Cross-Connect-Seite statt einer sehr breiten Tabelle.
 - Jede Karte zeigt auf einen Blick Serial, Kunde/Standort, Vorgang und den

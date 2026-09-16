@@ -308,7 +308,21 @@ const THEAD_HTML = `<tr>
 </tr>`;
 
 function _auditCustomer(it) {
-  return it.customer_name || it.customer || it.system_name || it.logical_name || "Kunde nicht zugeordnet";
+  const systemName = String(it.system_name || "").trim();
+  const systemCustomer = systemName.includes(":")
+    ? systemName.split(":").filter(Boolean).at(-1)
+    : systemName;
+  return it.customer_name || it.customer || systemCustomer || it.logical_name || "Kunde nicht zugeordnet";
+}
+
+function _auditLocation(it) {
+  const parts = [
+    it.room ? `A-Raum ${it.room}` : "",
+    it.rack_code ? `Rack ${it.rack_code}` : "",
+    it.z_pp_number || it.z_pp_raw ? `K.PP ${it.z_pp_number || it.z_pp_raw}` : "",
+    it.z_port_label ? `Port ${it.z_port_label}` : "",
+  ].filter(Boolean);
+  return parts.join(" · ") || "Standort / Patchpanel nicht erfasst";
 }
 
 function _auditNode(kind, value, port, tone) {
@@ -361,7 +375,7 @@ function _auditLineCard(it, isAdmin) {
     <div class="audit-line-summary" data-action="toggle-line" data-id="${id}" role="button" tabindex="0" aria-expanded="${open}">
       <span class="audit-line-chevron ${open ? "open" : ""}">&#9654;</span>
       <div><div class="audit-line-serial">${esc(it.serial_number || `ID ${id}`)}</div><div class="audit-line-meta">ID ${id} · ${esc(it.event_type || "Install")}</div></div>
-      <div class="audit-line-customer" title="${esc(_auditCustomer(it))}"><strong>${esc(_auditCustomer(it))}</strong><div class="audit-line-meta">${esc(it.product_id || it.room || "Kunde / Standort nicht erfasst")}</div></div>
+      <div class="audit-line-customer" title="${esc(_auditCustomer(it))}"><strong>${esc(_auditCustomer(it))}</strong><div class="audit-line-meta">${esc(_auditLocation(it))}</div></div>
       <div class="audit-line-path">
         ${_auditNode("RFRA / A-PP", aPP || it.switch_name, it.a_port_label || it.switch_port, "rfra")}
         <span class="audit-path-arrow">→</span>
