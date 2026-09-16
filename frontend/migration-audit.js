@@ -68,6 +68,7 @@ let currentView = "current"; // "current" = deduplicated, "all" = full history
 let allItems = [];
 let catItems = { 0: [], 1: [], 2: [] };
 let catPages = { 0: 1, 1: 1, 2: 1 };
+const expandedAuditLines = new Set();
 // Start with every audit category closed so users open only what they need.
 let catCollapsed = { 0: true, 1: true, 2: true };
 const auditFilters = { room:'', switch:'', bb_out_pp:'', serial:'', k_pp:'' };
@@ -306,15 +307,86 @@ const THEAD_HTML = `<tr>
   <th class="text-end">Aktion</th>
 </tr>`;
 
+function _auditCustomer(it) {
+  return it.customer_name || it.customer || it.system_name || it.logical_name || "Kunde nicht zugeordnet";
+}
+
+function _auditNode(kind, value, port, tone) {
+  return `<div class="audit-path-node ${tone}">
+    <div class="audit-path-kind">${esc(kind)}</div>
+    <div class="audit-path-value mono">${esc(value || "Nicht erfasst")}</div>
+    <div class="audit-path-port">${port ? `Port <strong>${esc(port)}</strong>` : "Port nicht erfasst"}</div>
+  </div>`;
+}
+
+function _auditChecks(it) {
+  const checks = [];
+  const add = (label, ok) => checks.push(`<li class="${ok ? "ok" : "problem"}">${ok ? "✓" : "!"} ${label}</li>`);
+  const aPP = it.a_pp_number || it.a_pp_raw;
+  const aPort = it.a_port_label;
+  const bbIn = it.backbone_in_instance_id || it.pp1_raw || it.pp1_number;
+  const bbOut = it.backbone_out_instance_id || it.pp2_raw || it.pp2_number;
+  const zPP = it.z_pp_number || it.z_pp_raw;
+  const zPort = it.z_port_label;
+  add("RFRA / A-PP und Port vollständig", Boolean(aPP && aPort));
+  add("BB IN und BB OUT zugeordnet", Boolean(bbIn && bbOut));
+  add("Kunden-Patchpanel und Port vollständig", Boolean(zPP && zPort));
+  add(`Serial ${it.serial_number ? "vorhanden" : "fehlt"}`, Boolean(it.serial_number));
+  add(`Konfliktprüfung ${it.conflict_category ? "erforderlich" : "ohne offenen Konflikt"}`, !it.conflict_category);
+  return checks.join("");
+}
+
+function _auditProblemHtml(it) {
+  const conflicts = [...(it.a_conflicts || []), ...(it.z_conflicts || [])];
+  const problem = conflicts.length
+    ? conflicts.map(c => `<div class="conflict-chip ${c === (it.a_conflicts || [])[0] ? "a-side" : "z-side"}">${esc(c.msg || "Konflikt")} ${c.serial ? `<span class="conflict-detail">Serial: ${esc(c.serial)}</span>` : ""}</div>`).join("")
+    : `<span class="badge" style="background:rgba(16,185,129,.15);color:#6ee7b7;">Keine Konfliktmeldung</span>`;
+  return `<div class="audit-detail-grid">
+    <div class="audit-detail-box"><div class="audit-detail-title">Problem dieser Leitung</div>${problem}</div>
+    <div class="audit-detail-box"><div class="audit-detail-title">Was muss geprüft werden?</div><ul class="audit-check-list">${_auditChecks(it)}</ul></div>
+  </div>`;
+}
+
+function _auditLineCard(it, isAdmin) {
+  const open = expandedAuditLines.has(Number(it.id));
+  const id = Number(it.id);
+  const aPP = it.a_pp_number || it.a_pp_raw;
+  const bbIn = it.backbone_in_instance_id || it.pp1_raw || it.pp1_number;
+  const bbOut = it.backbone_out_instance_id || it.pp2_raw || it.pp2_number;
+  const zPP = it.z_pp_number || it.z_pp_raw;
+  const actions = isAdmin ? `
+    ${currentStatus === "imported" ? `<button class="btn btn-sm btn-outline-primary" data-action="edit" data-id="${id}">Audit</button>` : ""}
+    <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${id}" title="Leitung loeschen">&#128465;</button>` : "";
+  return `<article class="audit-line-card" data-audit-line="${id}">
+    <div class="audit-line-summary" data-action="toggle-line" data-id="${id}" role="button" tabindex="0" aria-expanded="${open}">
+      <span class="audit-line-chevron ${open ? "open" : ""}">&#9654;</span>
+      <div><div class="audit-line-serial">${esc(it.serial_number || `ID ${id}`)}</div><div class="audit-line-meta">ID ${id} · ${esc(it.event_type || "Install")}</div></div>
+      <div class="audit-line-customer" title="${esc(_auditCustomer(it))}"><strong>${esc(_auditCustomer(it))}</strong><div class="audit-line-meta">${esc(it.product_id || it.room || "Kunde / Standort nicht erfasst")}</div></div>
+      <div class="audit-line-path">
+        ${_auditNode("RFRA / A-PP", aPP || it.switch_name, it.a_port_label || it.switch_port, "rfra")}
+        <span class="audit-path-arrow">→</span>
+        ${_auditNode("BB IN", bbIn, it.backbone_in_port_label || it.pp1_port_label, "bb")}
+        <span class="audit-path-arrow">→</span>
+        ${_auditNode("BB OUT", bbOut, it.backbone_out_port_label || it.pp2_port_label, "bb")}
+        <span class="audit-path-arrow">→</span>
+        ${_auditNode("Kunde / PP", zPP, it.z_port_label, "customer")}
+      </div>
+      <div>${_buildEventBadge(it.event_type || "Install")}<div class="audit-line-meta">${it.conflict_category ? "Prüfung offen" : "Bereit"}</div></div>
+      <div class="audit-line-actions">${actions}</div>
+    </div>
+    <div class="audit-line-detail ${open ? "open" : ""}" data-detail-for="${id}">${_auditProblemHtml(it)}</div>
+  </article>`;
+}
+
 function _renderCatTable(cat) {
   const thead = el(`catHead${cat}`);
   const tbody = el(`catTbody${cat}`);
   if (!thead || !tbody) return;
-  thead.innerHTML = THEAD_HTML;
+  thead.innerHTML = "";
   tbody.innerHTML = '';
   const items = catItems[cat] || [];
   if (!items.length) {
-    tbody.innerHTML = `<tr><td colspan="17" class="text-muted small" style="padding:12px;">Keine Eintraege in dieser Kategorie.</td></tr>`;
+    tbody.innerHTML = `<div class="text-muted small" style="padding:12px;">Keine Eintraege in dieser Kategorie.</div>`;
     return;
   }
   const page = catPages[cat] || 1;
@@ -322,57 +394,28 @@ function _renderCatTable(cat) {
   const end = Math.min(start + PAGE_SIZE, items.length);
   const isAdmin = isAdminRole();
 
-  // Use DocumentFragment for performance
-  const frag = document.createDocumentFragment();
+  let html = "";
   for (let i = start; i < end; i++) {
     const it = items[i];
-    const tr = document.createElement("tr");
-    const fmtPP = (raw, fallback) => {
-      const r = (raw || "").toString().trim();
-      return r || (fallback || "").toString().trim();
-    };
-    const conflictHtml = _buildConflictHtml(it);
-    const eventBadge = _buildEventBadge(it.event_type || "Install");
-    const histBtn = (it.history_count || 1) > 1
-      ? `<button class="btn btn-sm btn-outline-info" data-action="history" data-id="${it.id}" style="font-size:.7rem;padding:1px 6px;margin-left:4px;" title="Verlauf (${it.history_count} Eintraege)">&#128337; ${it.history_count}</button>`
-      : '';
-    tr.innerHTML = `
-      <td>${it.id}</td>
-      <td>${esc(it.room || "")}</td>
-      <td>
-        ${esc(it.switch_name || "")}<div class="text-muted" style="font-size:.75rem;">${esc(it.switch_port || "")}</div>
-        ${it.logical_name ? `<div class="text-muted" style="font-size:.7rem;">LN: ${esc(it.logical_name)}</div>` : ``}
-      </td>
-      <td>${esc(fmtPP(it.a_pp_number, it.a_pp_raw))}</td>
-      <td>${esc(it.a_port_label || "")}${it.a_eqx_port ? (' <span class="text-muted">/' + esc(it.a_eqx_port) + '</span>') : ''}</td>
-      <td>${esc((it.backbone_in_instance_id || it.pp1_raw || it.pp1_number || ""))}</td>
-      <td>${esc(it.backbone_in_port_label || it.pp1_port_label || "")}</td>
-      <td>${esc((it.backbone_out_instance_id || it.pp2_raw || it.pp2_number || ""))}</td>
-      <td>${esc(it.backbone_out_port_label || it.pp2_port_label || "")}</td>
-      <td>${esc(it.rack_code || "")}</td>
-      <td>${esc(fmtPP(it.z_pp_number, it.z_pp_raw))}</td>
-      <td>${esc(it.z_port_label || "")}</td>
-      <td>${esc(it.product_id || "")}</td>
-      <td>${esc(it.serial_number || "")}</td>
-      <td>${eventBadge}${histBtn}</td>
-      <td style="white-space:normal;max-width:260px;">${conflictHtml}</td>
-      <td class="text-end" style="white-space:nowrap;">
-        ${isAdmin ? (
-          currentStatus === "imported" ? `
-            <button class="btn btn-sm btn-outline-primary" data-action="edit" data-id="${it.id}" data-admin-only>Audit</button>
-            <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${it.id}" data-admin-only title="Leitung loeschen" style="margin-left:4px;">&#128465;</button>
-          ` : (currentStatus === "audited" ? `
-            <button class="btn btn-sm btn-outline-secondary" data-action="edit" data-id="${it.id}" data-admin-only>Bearbeiten</button>
-            <button class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${it.id}" data-admin-only title="Leitung loeschen" style="margin-left:4px;">&#128465;</button>
-          ` : ``)
-        ) : `<span class="text-muted small">read-only</span>`}
-      </td>
-    `;
-    frag.appendChild(tr);
+    html += _auditLineCard(it, isAdmin);
   }
-  tbody.appendChild(frag);
+  tbody.innerHTML = html;
 
-  // Bind edit buttons
+  tbody.querySelectorAll("[data-action='toggle-line']").forEach(btn => {
+    const toggle = () => {
+      const id = Number(btn.dataset.id);
+      if (expandedAuditLines.has(id)) expandedAuditLines.delete(id);
+      else expandedAuditLines.add(id);
+      _renderCatTable(cat);
+    };
+    btn.addEventListener("click", (event) => {
+      if (event.target.closest("button")) return;
+      toggle();
+    });
+    btn.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggle(); }
+    });
+  });
   if (isAdmin) {
     tbody.querySelectorAll("button[data-action='edit']").forEach(btn => {
       btn.addEventListener("click", () => openEdit(Number(btn.dataset.id)));

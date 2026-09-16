@@ -1,5 +1,19 @@
 # Aenderungsuebersicht
 
+## 2026-09-16 - Migration Audit Leitungsansicht
+
+- Migration Audit verwendet jetzt kompakte, einklappbare Leitungskarten im Stil
+  der Cross-Connect-Seite statt einer sehr breiten Tabelle.
+- Jede Karte zeigt auf einen Blick Serial, Kunde/Standort, Vorgang und den
+  vollständigen Weg **RFRA / A-PP → BB IN → BB OUT → Kunde / PP + Port**.
+- Beim Aufklappen erscheinen nur die relevanten Audit-Informationen: das konkrete
+  Problem der Leitung und eine Prüfliste für Patchpanel, Ports, Backbone,
+  Kundenzuordnung, Serial und Konflikte.
+- Fehlerhafte Leitungen bleiben nach Kategorie farblich getrennt; die bestehende
+  Filterung, Historie, Pagination und Admin-Aktionen bleiben erhalten.
+- Die responsive Darstellung wechselt auf kleineren Bildschirmen automatisch von
+  der horizontalen Pfadzeile in eine gut lesbare Kartenanordnung.
+
 ## 2026-09-16 - Zuverlaessigkeit und Fehlerkorrekturen
 
 ### Anmeldung und Sitzungen

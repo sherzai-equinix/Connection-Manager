@@ -57,7 +57,7 @@
       color: #93c5fd; margin-bottom: 12px;
     }
 
-    /* -- Port Grid (cassette style – same as KW Planning) -- */
+    /* -- Port Grid (cassette style ï¿½ same as KW Planning) -- */
     .cassette-row {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
       gap: 10px; align-items: start;
@@ -192,6 +192,45 @@
     .audit-cat-toggle { font-size: .75rem; transition: transform .2s; }
     .audit-cat-body { transition: max-height .3s ease; overflow: hidden; }
     .audit-cat-body.collapsed { max-height: 0 !important; padding: 0; }
+
+    /* Compact connection cards: the audit page keeps the Cross Connect
+       path readable without forcing every field into a wide table. */
+    .audit-line-list { display: flex; flex-direction: column; gap: 8px; padding: 10px; }
+    .audit-line-card { border: 1px solid var(--border, #333); border-radius: 12px; overflow: hidden; background: var(--surface-2, #23262b); }
+    .audit-line-summary { display: grid; grid-template-columns: 28px minmax(100px,.7fr) minmax(150px,1.4fr) minmax(260px,2.5fr) minmax(150px,1fr) auto; gap: 12px; align-items: center; padding: 11px 14px; cursor: pointer; }
+    .audit-line-summary:hover { background: rgba(59,130,246,.08); }
+    .audit-line-chevron { color: #93c5fd; transition: transform .15s; }
+    .audit-line-chevron.open { transform: rotate(90deg); }
+    .audit-line-serial { font-weight: 800; color: var(--text, #e2e8f0); }
+    .audit-line-customer { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .audit-line-meta { color: var(--text-muted, #94a3b8); font-size: .72rem; margin-top: 2px; }
+    .audit-line-path { display: flex; align-items: stretch; gap: 6px; min-width: 0; }
+    .audit-path-node { flex: 1 1 0; min-width: 0; padding: 6px 8px; border-radius: 7px; border: 1px solid rgba(148,163,184,.2); background: rgba(148,163,184,.06); }
+    .audit-path-node.rfra { border-color: rgba(59,130,246,.35); background: rgba(59,130,246,.09); }
+    .audit-path-node.bb { border-color: rgba(20,184,166,.35); background: rgba(20,184,166,.08); }
+    .audit-path-node.customer { border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.08); }
+    .audit-path-kind { font-size: .62rem; text-transform: uppercase; color: var(--text-muted, #94a3b8); letter-spacing: .04em; }
+    .audit-path-value { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .76rem; font-weight: 700; }
+    .audit-path-port { font-size: .68rem; color: var(--text-muted, #94a3b8); }
+    .audit-path-arrow { align-self: center; color: #64748b; }
+    .audit-line-detail { display: none; border-top: 1px solid var(--border, #333); padding: 12px 14px 14px 54px; background: rgba(15,23,42,.18); }
+    .audit-line-detail.open { display: block; }
+    .audit-detail-grid { display: grid; grid-template-columns: minmax(230px,1fr) minmax(230px,1fr); gap: 12px; }
+    .audit-detail-box { border: 1px solid var(--border, #333); border-radius: 9px; padding: 10px 12px; }
+    .audit-detail-title { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted, #94a3b8); margin-bottom: 6px; font-weight: 800; }
+    .audit-check-list { margin: 0; padding-left: 18px; font-size: .79rem; }
+    .audit-check-list li { margin: 3px 0; }
+    .audit-check-list li.problem { color: #fca5a5; }
+    .audit-check-list li.ok { color: #6ee7b7; }
+    .audit-line-actions { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+    @media (max-width: 1000px) {
+      .audit-line-summary { grid-template-columns: 24px 1fr auto; }
+      .audit-line-path, .audit-line-customer { grid-column: 2 / -1; }
+      .audit-detail-grid { grid-template-columns: 1fr; }
+      .audit-line-detail { padding-left: 14px; }
+    }
+    body.light-mode .audit-line-card { background: #fff; }
+    body.light-mode .audit-line-detail { background: #f8fafc; }
 
     .audit-table-scroll {
       overflow: auto; max-height: 540px; max-width: 100%;
@@ -349,10 +388,7 @@
               </div>
               <div class="audit-cat-body collapsed" id="catBody2" hidden>
                 <div class="audit-table-scroll">
-                  <table class="table table-sm table-striped align-middle audit-tbl">
-                    <thead id="catHead2"></thead>
-                    <tbody id="catTbody2"></tbody>
-                  </table>
+                  <div id="catHead2"></div><div id="catTbody2" class="audit-line-list"></div>
                 </div>
                 <div class="audit-pager" id="catPager2"></div>
               </div>
@@ -368,10 +404,7 @@
               </div>
               <div class="audit-cat-body collapsed" id="catBody1" hidden>
                 <div class="audit-table-scroll">
-                  <table class="table table-sm table-striped align-middle audit-tbl">
-                    <thead id="catHead1"></thead>
-                    <tbody id="catTbody1"></tbody>
-                  </table>
+                  <div id="catHead1"></div><div id="catTbody1" class="audit-line-list"></div>
                 </div>
                 <div class="audit-pager" id="catPager1"></div>
               </div>
@@ -387,10 +420,7 @@
               </div>
               <div class="audit-cat-body collapsed" id="catBody0" hidden>
                 <div class="audit-table-scroll">
-                  <table class="table table-sm table-striped align-middle audit-tbl">
-                    <thead id="catHead0"></thead>
-                    <tbody id="catTbody0"></tbody>
-                  </table>
+                  <div id="catHead0"></div><div id="catTbody0" class="audit-line-list"></div>
                 </div>
                 <div class="audit-pager" id="catPager0"></div>
               </div>
@@ -422,7 +452,7 @@
   </nav>
 
   <!-- --------------------------------------------------------
-       AUDIT EDIT — Unified Cross-Connect Form (same as KW Install)
+       AUDIT EDIT ï¿½ Unified Cross-Connect Form (same as KW Install)
        -------------------------------------------------------- -->
   <div id="auditEditBg" class="modal-bg">
     <div class="modal-panel">
