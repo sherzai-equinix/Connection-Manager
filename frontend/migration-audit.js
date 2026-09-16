@@ -323,10 +323,10 @@ function _auditNode(kind, value, port, tone) {
 function _auditProblemNote(it) {
   const conflicts = [...(it.a_conflicts || []), ...(it.z_conflicts || [])];
   if (!conflicts.length) {
-    return `<span class="audit-problem-note ok">Keine Konfliktmeldung</span>`;
+    return `<button type="button" class="audit-problem-note ok" data-action="show-problem" data-id="${Number(it.id)}">Keine Konfliktmeldung</button>`;
   }
-  return `<span class="audit-problem-note warning" title="${esc(conflicts.map(c => c.msg || "Konflikt").join(" · "))}">`
-    + `${conflicts.length} Problem${conflicts.length === 1 ? "" : "e"} · Prüfung nötig</span>`;
+  return `<button type="button" class="audit-problem-note warning" data-action="show-problem" data-id="${Number(it.id)}">`
+    + `${conflicts.length} Problem${conflicts.length === 1 ? "" : "e"} · Prüfung nötig</button>`;
 }
 
 function _auditLineCard(it, isAdmin) {
@@ -381,10 +381,34 @@ function _renderCatTable(cat) {
   }
   tbody.innerHTML = html;
 
+  tbody.querySelectorAll("button[data-action='show-problem']").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const item = allItems.find(it => Number(it.id) === Number(btn.dataset.id));
+      if (item) _openAuditProblem(item);
+    });
+  });
   if (isAdmin) {
     tbody.querySelectorAll("button[data-action='edit']").forEach(btn => {
       btn.addEventListener("click", () => openEdit(Number(btn.dataset.id)));
     });
+  }
+
+  function _openAuditProblem(it) {
+    const bg = document.getElementById("auditProblemBg");
+    const body = document.getElementById("auditProblemBody");
+    const title = document.getElementById("auditProblemTitle");
+    if (!bg || !body || !title) return;
+    title.textContent = `Probleme · ${it.serial_number || `ID ${it.id}`}`;
+    body.innerHTML = _buildConflictHtml(it);
+    bg.classList.add("show");
+    bg.setAttribute("aria-hidden", "false");
+  }
+
+  function _closeAuditProblem() {
+    const bg = document.getElementById("auditProblemBg");
+    if (!bg) return;
+    bg.classList.remove("show");
+    bg.setAttribute("aria-hidden", "true");
   }
   // Bind history buttons
   tbody.querySelectorAll("button[data-action='history']").forEach(btn => {
@@ -1462,9 +1486,13 @@ function bindFormEvents() {
 
   el("btnSaveAudit")?.addEventListener("click", saveAudit);
   el("btnAuditClose")?.addEventListener("click", hideAuditModal);
+  el("btnAuditProblemClose")?.addEventListener("click", _closeAuditProblem);
 
   el("auditEditBg")?.addEventListener("click", ev => {
     if (ev.target.id === "auditEditBg") hideAuditModal();
+  });
+  el("auditProblemBg")?.addEventListener("click", ev => {
+    if (ev.target.id === "auditProblemBg") _closeAuditProblem();
   });
 }
 

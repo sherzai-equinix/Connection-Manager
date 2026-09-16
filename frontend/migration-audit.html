@@ -204,9 +204,13 @@
     .audit-line-serial { font-weight: 800; color: var(--text, #e2e8f0); }
     .audit-line-customer { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .audit-line-problem { min-width: 0; }
-    .audit-problem-note { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 8px; border-radius: 6px; font-size: .72rem; font-weight: 700; }
+    .audit-problem-note { display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 6px 9px; border: 1px solid transparent; border-radius: 6px; font-size: .72rem; font-weight: 700; cursor: pointer; text-align: left; }
     .audit-problem-note.ok { color: #6ee7b7; background: rgba(16,185,129,.12); }
-    .audit-problem-note.warning { color: #fbbf24; background: rgba(245,158,11,.13); }
+    .audit-problem-note.warning { color: #f59e0b; background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.28); }
+    .audit-problem-note:hover { filter: brightness(1.15); }
+    .audit-problem-dialog { max-width: 560px; margin: 12vh auto; }
+    .audit-problem-dialog .modal-header { margin-bottom: 10px; }
+    .audit-problem-dialog .modal-body { max-height: 55vh; overflow-y: auto; }
     .audit-line-meta { color: var(--text-muted, #94a3b8); font-size: .72rem; margin-top: 2px; }
     .audit-line-path { display: flex; align-items: stretch; gap: 6px; min-width: 0; }
     .audit-path-node { flex: 1 1 0; min-width: 0; padding: 6px 8px; border-radius: 7px; border: 1px solid rgba(148,163,184,.2); background: rgba(148,163,184,.06); }
@@ -537,6 +541,16 @@
         <div class="form-section-title">Backbone OUT <span class="small muted">(automatisch via Peer)</span></div>
         <div id="auBbOutResult" class="auto-fill-result" style="display:none;"></div>
       </div>
+    </div>
+  </div>
+
+  <div id="auditProblemBg" class="modal-bg" aria-hidden="true">
+    <div class="modal-panel audit-problem-dialog" role="dialog" aria-modal="true" aria-labelledby="auditProblemTitle">
+      <div class="modal-header">
+        <h3 id="auditProblemTitle">Leitungsprobleme</h3>
+        <button type="button" class="btn btn-sm" id="btnAuditProblemClose" aria-label="Fenster schließen">✕</button>
+      </div>
+      <div class="modal-body" id="auditProblemBody"></div>
     </div>
   </div>
 
