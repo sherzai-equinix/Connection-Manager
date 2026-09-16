@@ -30,3 +30,10 @@ test("audit card output escapes user-controlled connection fields", () => {
   assert.match(source, /esc\(value \|\| "Nicht erfasst"\)/);
   assert.match(source, /_auditProblemHtml\(it\)/);
 });
+
+test("audit cards include location and customer patchpanel context", () => {
+  assert.match(source, /function _auditLocation\(it\)/);
+  assert.match(source, /A-Raum/);
+  assert.match(source, /K\.PP/);
+  assert.match(source, /it\.customer_name \|\| it\.customer/);
+});
