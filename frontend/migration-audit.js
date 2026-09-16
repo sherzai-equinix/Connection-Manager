@@ -309,10 +309,8 @@ const THEAD_HTML = `<tr>
 
 function _auditCustomer(it) {
   const systemName = String(it.system_name || "").trim();
-  const systemCustomer = systemName.includes(":")
-    ? systemName.split(":").filter(Boolean).at(-1)
-    : systemName;
-  return it.customer_name || it.customer || systemCustomer || it.logical_name || "Kunde nicht zugeordnet";
+  // The complete System Name is the unique circuit/customer identifier.
+  return systemName || it.customer_name || it.customer || it.logical_name || "Kunde nicht zugeordnet";
 }
 
 function _auditLocation(it) {
