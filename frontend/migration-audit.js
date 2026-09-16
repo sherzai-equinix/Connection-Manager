@@ -393,23 +393,6 @@ function _renderCatTable(cat) {
     });
   }
 
-  function _openAuditProblem(it) {
-    const bg = document.getElementById("auditProblemBg");
-    const body = document.getElementById("auditProblemBody");
-    const title = document.getElementById("auditProblemTitle");
-    if (!bg || !body || !title) return;
-    title.textContent = `Probleme · ${it.serial_number || `ID ${it.id}`}`;
-    body.innerHTML = _buildConflictHtml(it);
-    bg.classList.add("show");
-    bg.setAttribute("aria-hidden", "false");
-  }
-
-  function _closeAuditProblem() {
-    const bg = document.getElementById("auditProblemBg");
-    if (!bg) return;
-    bg.classList.remove("show");
-    bg.setAttribute("aria-hidden", "true");
-  }
   // Bind history buttons
   tbody.querySelectorAll("button[data-action='history']").forEach(btn => {
     btn.addEventListener("click", () => openHistory(Number(btn.dataset.id)));
@@ -418,6 +401,24 @@ function _renderCatTable(cat) {
   tbody.querySelectorAll("button[data-action='delete']").forEach(btn => {
     btn.addEventListener("click", () => deleteAuditLine(Number(btn.dataset.id)));
   });
+}
+
+function _openAuditProblem(it) {
+  const bg = document.getElementById("auditProblemBg");
+  const body = document.getElementById("auditProblemBody");
+  const title = document.getElementById("auditProblemTitle");
+  if (!bg || !body || !title) return;
+  title.textContent = `Probleme · ${it.serial_number || `ID ${it.id}`}`;
+  body.innerHTML = _buildConflictHtml(it);
+  bg.classList.add("show");
+  bg.setAttribute("aria-hidden", "false");
+}
+
+function _closeAuditProblem() {
+  const bg = document.getElementById("auditProblemBg");
+  if (!bg) return;
+  bg.classList.remove("show");
+  bg.setAttribute("aria-hidden", "true");
 }
 
 function _buildConflictHtml(it) {
