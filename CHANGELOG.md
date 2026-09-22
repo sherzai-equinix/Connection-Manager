@@ -1,5 +1,14 @@
 # Aenderungsuebersicht
 
+## 2026-09-22 - Login-Timeout
+
+- Login, Session-Prüfung und erzwungene Passwortänderung brechen nicht mehr
+  dauerhaft mit „Anmeldung läuft…“ ab, wenn Backend, Proxy oder Datenbank nicht
+  antworten.
+- Authentifizierungsanfragen verwenden jetzt ein 15-Sekunden-Zeitlimit,
+  brechen die Anfrage kontrolliert ab und zeigen eine verständliche
+  Netzwerk-/Backend-Fehlermeldung an.
+
 ## 2026-09-22 - Patchpanel Explorer
 
 - Die Patchpanel-Seite hat eine neue Hero-Kopfzeile mit klarer Infrastruktur-

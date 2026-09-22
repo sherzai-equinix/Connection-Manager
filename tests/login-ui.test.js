@@ -14,7 +14,9 @@ test("login keeps the existing authentication contract", () => {
   for (const id of ["loginForm", "username", "password", "remember", "loginBtn"]) {
     assert.match(loginSource, new RegExp(`id="${id}"`));
   }
-  assert.match(loginSource, /fetch\(`\$\{API_ORIGIN\}\/auth\/login`/);
+  assert.match(loginSource, /fetchAuth\(`\$\{API_ORIGIN\}\/auth\/login`/);
+  assert.match(loginSource, /AUTH_REQUEST_TIMEOUT_MS = 15000/);
+  assert.match(loginSource, /Der Server antwortet nicht/);
   assert.match(loginSource, /window\.saveAuthSession\(/);
   assert.match(loginSource, /showPasswordChangeDialog/);
 });
