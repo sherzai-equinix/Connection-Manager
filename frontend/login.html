@@ -690,6 +690,25 @@
         }
 
         const API_ORIGIN = (window.API_ORIGIN || "http://127.0.0.1:8000").replace(/\/$/, "");
+        const AUTH_REQUEST_TIMEOUT_MS = 15000;
+
+        function fetchAuth(url, options = {}) {
+            const controller = typeof AbortController === "function" ? new AbortController() : null;
+            const requestOptions = { ...options };
+            if (controller) requestOptions.signal = controller.signal;
+
+            let timer = null;
+            const timeout = new Promise((_, reject) => {
+                timer = setTimeout(() => {
+                    if (controller) controller.abort();
+                    reject(new Error("Der Server antwortet nicht. Bitte Backend und Netzwerkverbindung prüfen."));
+                }, AUTH_REQUEST_TIMEOUT_MS);
+            });
+
+            return Promise.race([fetch(url, requestOptions), timeout]).finally(() => {
+                if (timer !== null && typeof clearTimeout === "function") clearTimeout(timer);
+            });
+        }
 
         /* ── Login Logic ── */
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
@@ -710,7 +729,7 @@
             errorMessage.style.display = 'none';
 
             try {
-                const res = await fetch(`${API_ORIGIN}/auth/login`, {
+                const res = await fetchAuth(`${API_ORIGIN}/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password })
@@ -775,7 +794,7 @@
             const loginBtn = document.getElementById('loginBtn');
             loginBtn.disabled = true;
             try {
-                const res = await fetch(`${API_ORIGIN}/auth/me`);
+                const res = await fetchAuth(`${API_ORIGIN}/auth/me`);
                 if (res.status === 401) return;
                 if (res.status === 403) {
                     window.clearAuthSession();
@@ -893,7 +912,7 @@
 
                 try {
                     const authToken = token || localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-                    const res = await fetch(API_ORIGIN + '/auth/change-password', {
+                    const res = await fetchAuth(API_ORIGIN + '/auth/change-password', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
