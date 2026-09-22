@@ -1,5 +1,17 @@
 # Aenderungsuebersicht
 
+## 2026-09-22 - Patchpanel Explorer
+
+- Die Patchpanel-Seite hat eine neue Hero-Kopfzeile mit klarer Infrastruktur-
+  Kennzeichnung, Icon und Live-Kennzahlen für Patchpanels, freie und belegte
+  Ports sowie die aktuelle Ansicht.
+- Suche und Bereichsfilter sind jetzt als gemeinsame Toolbar gestaltet; ein
+  sichtbarer Reset setzt Suche und Standortfilter mit einem Klick zurück.
+- Patchpanel-Karten zeigen zusätzlich Kategorie und prozentuale Belegung,
+  bleiben dabei mit Port-Grid, Tabelle, Vergleich und Aktionen kompatibel.
+- Dark- und Light-Mode erhalten abgestimmte blaue/türkise Kontraste und ein
+  responsives Layout für kleinere Bildschirme.
+
 ## 2026-09-16 - Migration Audit Leitungsansicht
 
 - Der vollständige `System Name` wird unverändert als eindeutige Leitungs- und
