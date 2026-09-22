@@ -32,6 +32,17 @@ function toast(m,t="info"){const w=$("toastWrap");if(!w)return;const e=document.
 function setStatus(m){const s=$("ppStatus");if(s) s.textContent=m||"";}
 async function api(u,init){const r=await fetch(u,init);const d=await r.json().catch(()=>({}));if(!r.ok) throw new Error(d?.detail||`HTTP ${r.status}`);return d;}
 async function apiPost(u,b){return api(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b)});}
+function updateOverview(){
+  const total=S.allItems.reduce((sum,it)=>sum+Number(it.ports_total||0),0);
+  const free=S.allItems.reduce((sum,it)=>sum+Number(it.ports_free??Math.max(0,Number(it.ports_total||0)-Number(it.ports_occupied||0))),0);
+  const occupied=S.allItems.reduce((sum,it)=>sum+Number(it.ports_occupied||0),0);
+  const values={ppMetricTotal:S.allItems.length,ppMetricFree:free,ppMetricOccupied:occupied,ppMetricShown:S.filteredItems.length};
+  for(const [id,value] of Object.entries(values)){const node=$(id);if(node) node.textContent=value.toLocaleString("de-DE");}
+  const hint=document.querySelector(".pp-status-hint");
+  if(hint) hint.textContent=S.sidebarFilter||S.searchQuery
+    ? `${S.filteredItems.length} Patchpanels in der aktuellen Ansicht.`
+    : `${S.allItems.length} Patchpanels und ${total.toLocaleString("de-DE")} Ports im Bestand.`;
+}
 
 function cassLabel(n){
   n=Number(n||0);if(!Number.isFinite(n)||n<1) return "-";
@@ -68,6 +79,7 @@ function applyFilters(){
     }
     return true;
   });
+  updateOverview();
   renderSidebar();
   renderCards();
 }
@@ -175,10 +187,12 @@ function renderCards(){
   for(const it of S.filteredItems){
     const tot=it.ports_total||48, occ=it.ports_occupied||0, free=it.ports_free??(tot-occ);
     const pF=tot>0?Math.round(free/tot*100):100, pO=100-pF;
+    const category=CAT_LABELS[it.category]||"Patchpanel";
     const isA=Number(it.id)===Number(S.slotA.id);
     const isB=Number(it.id)===Number(S.slotB.id);
     html+=`<div class="pp-card${isA?" active":""}${isB?" compare":""}" data-id="${it.id}">
       <div class="pp-card-name">${esc(it.name)}</div>
+      <div class="pp-card-meta"><span class="pp-card-category">${esc(category)}</span><span class="pp-card-util">${pO}% belegt</span></div>
       <div class="pp-card-loc small muted">${esc(it.location||"-")}${it.customer_name?` · ${esc([it.room,it.rack,it.customer_name].filter(Boolean).join(":"))}`:""}</div>
       <div class="pp-card-bar"><div class="pp-bar-free" style="width:${pF}%"></div><div class="pp-bar-occ" style="width:${pO}%"></div></div>
       <div class="pp-card-stats">
@@ -899,6 +913,12 @@ function bindEvents(){
     S.searchQuery=($("ppSearch")?.value||"").trim();
     applyFilters();
   }));
+  $("btnClearPpFilters")?.addEventListener("click",()=>{
+    S.searchQuery="";
+    S.sidebarFilter=null;
+    const input=$("ppSearch");if(input) input.value="";
+    applyFilters();
+  });
   $("btnNewPp")?.addEventListener("click",openModal);
   $("btnDeinstallPp")?.addEventListener("click",doDeinstallPp);
   $("ppModalClose")?.addEventListener("click",closeModal);

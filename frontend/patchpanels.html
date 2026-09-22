@@ -7,7 +7,7 @@
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
+<body class="patchpanels-page">
   <header class="topbar">
     <div class="topbar-inner">
       <div class="topbar-title">Patchpanel Explorer</div>
@@ -20,18 +20,43 @@
 
         <!-- ── Explorer Header ─────────────────────────────────── -->
         <div class="card pp-explorer-header">
-          <div class="pp-header-row">
-            <div>
-              <h1 class="card-title" style="margin-bottom:2px;">Patchpanel Explorer</h1>
-              <div class="card-subtitle">Alle Patchpanels durchsuchen, filtern und verwalten.</div>
+          <div class="pp-hero-top">
+            <div class="pp-title-wrap">
+              <div class="pp-title-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                  <path d="M7 8h10M7 12h10M7 16h4"></path>
+                  <circle cx="17" cy="16" r="1"></circle>
+                </svg>
+              </div>
+              <div>
+                <div class="pp-eyebrow">Infrastruktur</div>
+                <h1 class="pp-title">Patchpanel Explorer</h1>
+                <div class="pp-subtitle">Ports, Belegung und Standorte zentral prüfen und verwalten.</div>
+              </div>
             </div>
-            <div class="pp-header-actions">
-              <input id="ppSearch" class="input pp-search-input" placeholder="Raum, Rack, Cage oder Patchpanel suchen…" />
-              <button id="btnNewPp" class="btn">+ Neues Patchpanel</button>
-              <button id="btnDeinstallPp" class="btn" style="background:#5c1a1a;color:#ef5350;border-color:#5c1a1a;" disabled>PP Deinstallieren</button>
+            <div class="pp-hero-stats" aria-label="Patchpanel Übersicht">
+              <div class="pp-metric"><span>Patchpanels</span><strong id="ppMetricTotal">0</strong></div>
+              <div class="pp-metric"><span>Freie Ports</span><strong id="ppMetricFree">0</strong></div>
+              <div class="pp-metric"><span>Belegt</span><strong id="ppMetricOccupied">0</strong></div>
+              <div class="pp-metric pp-metric-accent"><span>Aktuelle Ansicht</span><strong id="ppMetricShown">0</strong></div>
             </div>
           </div>
-          <div id="ppStatus" class="small muted" style="margin-top:6px;"></div>
+          <div class="pp-toolbar">
+            <div class="pp-search-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg>
+              <input id="ppSearch" class="input pp-search-input" placeholder="Raum, Rack, Cage, Kunde oder Patchpanel suchen…" />
+            </div>
+            <div class="pp-header-actions">
+              <button id="btnClearPpFilters" class="btn pp-clear-btn" type="button">Filter zurücksetzen</button>
+              <button id="btnNewPp" class="btn btn-primary">+ Neues Patchpanel</button>
+              <button id="btnDeinstallPp" class="btn pp-danger-btn" disabled>PP deinstallieren</button>
+            </div>
+          </div>
+          <div class="pp-status-row">
+            <div id="ppStatus" class="small muted"></div>
+            <div class="pp-status-hint">Patchpanel auswählen, um Ports und Belegung zu öffnen.</div>
+          </div>
         </div>
 
         <!-- ── 3-Column Explorer ───────────────────────────────── -->
