@@ -31,7 +31,6 @@ In Portainer werden sie unter **Environment Variables** beim Stack-Setup eingetr
 | `CORS_ORIGINS`      |         | `*`             | Erlaubte Origins (komma-separiert)    |
 | `API_PREFIX`        |         | `/api/v1`       | Fuer das mitgelieferte Frontend auf `/api/v1` belassen |
 | `BACKEND_PORT`      |         | `8082`          | Host-Port fuer das Backend            |
-| `PROXY_NETWORK`     |         | `nginx-proxy-manager_default` | Bestehendes Docker-Netz des Nginx Proxy Managers |
 | `DB_PORT`           |         | `127.0.0.1:5433` | Host-Adresse und Port fuer PostgreSQL |
 | `PGADMIN_EMAIL`     |         | `admin@local.dev` | pgAdmin Login-Email                |
 | `PGADMIN_PASSWORD`  |         | `admin`         | pgAdmin Login-Passwort                |
@@ -45,7 +44,7 @@ In Portainer werden sie unter **Environment Variables** beim Stack-Setup eingetr
 - Portainer laeuft auf der Ziel-VM
 - Docker und Docker Compose sind installiert
 - Das GitHub-Repository ist erreichbar (ggf. Access Token fuer private Repos)
-- Der Nginx Proxy Manager laeuft auf demselben Docker-Host und sein Netzwerk `nginx-proxy-manager_default` existiert bereits. Bei einem anderen Netzwerknamen `PROXY_NETWORK` entsprechend setzen; Docker Compose erstellt ein externes Netzwerk nicht selbst.
+- Falls der Zugriff ueber eine Domain erfolgen soll, muss der Nginx Proxy Manager den Backend-Host unter seinem veroeffentlichten Port (`BACKEND_PORT`, standardmaessig `8082`) erreichen koennen.
 
 ### Schritt fuer Schritt
 
@@ -59,14 +58,13 @@ In Portainer werden sie unter **Environment Variables** beim Stack-Setup eingetr
 
 Portainer baut das Backend-Image direkt aus dem Repo und startet alle Services.
 
-Das Backend bleibt fuer die Datenbank im Netzwerk `cm_net` und ist zusaetzlich
-mit dem externen Proxy-Netzwerk verbunden. Im Nginx Proxy Manager den Proxy Host
-fuer `tocry.corp.equinix.com` auf **Scheme `http`**, **Forward Hostname `cm_backend`**
-und **Forward Port `8000`** stellen. Der bisherige Hostname mit Port `8082`
-nutzt nicht die gemeinsame Docker-Verbindung. Der direkte Zugriff ueber
-`http://<VM-IP>:8082` bleibt moeglich. Wenn der Proxy auf einem anderen Docker-Host
-laeuft, funktioniert diese Netzwerkanbindung nicht; dann muss stattdessen
-die Erreichbarkeit des Host-Ports vom Proxy aus hergestellt werden.
+Das Backend bleibt im Netzwerk `cm_net` und ist am Host-Port `8082` erreichbar.
+Im Nginx Proxy Manager den Proxy Host fuer `tocry.corp.equinix.com` auf
+**Scheme `http`**, **Forward Hostname `fr2lxcops01.corp.equinix.com`**
+und **Forward Port `8082`** stellen, sofern dieser Host *vom Proxy-Container
+aus* erreichbar ist. Der Proxy muss dafuer nicht auf demselben Docker-Host
+laufen. Das Hinzufuegen eines externen Docker-Netzes auf dem Backend-Host
+verbindet nicht zwei verschiedene Docker-Hosts miteinander.
 
 ### pgAdmin
 
@@ -76,12 +74,30 @@ kannst du den Container in Portainer stoppen. Setze vor dem Deployment ein eigen
 
 ### Updates deployen
 
-1. Aenderungen lokal committen und nach GitHub pushen
-2. In Portainer den Repository-Branch des Stacks pruefen: Fuer ein Test-Update den veroeffentlichten Update-Branch auswaehlen, nicht automatisch `main`
-3. **Pull and redeploy** / **Update the stack** ausfuehren und das Backend-Image neu bauen lassen
+1. Aenderungen auf `main` committen und nach GitHub pushen
+2. In Portainer pruefen, dass der Repository-Branch des Stacks `main` ist
+3. **Pull and redeploy** / **Update the stack** ausfuehren und das Backend-Image neu bauen lassen; ein GitHub-Merge allein aktualisiert den laufenden Container nicht
 
 Die Datenbank bleibt dabei erhalten (persistentes Volume `cm_pgdata`).
 Keine Volumes loeschen und vor einem Update ein aktuelles Backup erstellen.
+
+### HTTPS-Zugriff pruefen
+
+Falls `https://tocry.corp.equinix.com/frontend/login.html` nicht antwortet:
+
+1. Zuerst `http://<VM-IP>:8082/frontend/login.html` vom passenden Netzwerk aus
+   pruefen. Wenn das nicht antwortet, im Portainer-Stack den Branch `main`,
+   den letzten Redeploy und die Logs von `cm_backend` und `cm_postgres` pruefen.
+2. Wenn der direkte Zugriff funktioniert, den Proxy Host in Nginx Proxy Manager
+   pruefen: Domain `tocry.corp.equinix.com`, Scheme `http`, Forward Hostname
+   `fr2lxcops01.corp.equinix.com`, Port `8082`.
+3. **Vom Proxy-Container aus** DNS-Aufloesung und HTTP-Zugriff auf
+   `http://fr2lxcops01.corp.equinix.com:8082/frontend/login.html` pruefen.
+   Ein erfolgreicher Aufruf vom eigenen Rechner beweist nicht, dass der
+   Proxy-Container denselben Host erreichen kann. Ausserdem die Proxy-Host-
+   Logs und die TLS-/Access-Einstellungen im Nginx Proxy Manager pruefen.
+   Ein HTTPS-Timeout ohne HTTP-Status trotz erfolgreichem TLS-Handshake
+   beweist nicht, dass das Frontend selbst defekt ist.
 
 ---
 

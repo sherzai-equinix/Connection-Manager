@@ -15,15 +15,15 @@ if (-not (Test-Path ".git")) {
     throw "Kein Git-Repository gefunden in $repoRoot"
 }
 
+$currentBranch = (git branch --show-current).Trim()
+if ($Branch -ne "main" -or $currentBranch -ne "main") {
+    throw "Updates duerfen nur auf main veroeffentlicht werden (aktueller Branch: $currentBranch)."
+}
+
 $status = git status --porcelain
 if (-not $status) {
     Write-Host "Keine Aenderungen gefunden. Nichts zu committen."
     exit 0
-}
-
-$currentBranch = (git branch --show-current).Trim()
-if (-not $currentBranch) {
-    $currentBranch = $Branch
 }
 
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"

@@ -38,7 +38,6 @@ services:
         condition: service_healthy
     networks:
       - cm_net
-      - proxy_net
     restart: unless-stopped
 
   pgadmin:
@@ -70,6 +69,3 @@ volumes:
 networks:
   cm_net:
     name: cm_net
-  proxy_net:
-    external: true
-    name: ${PROXY_NETWORK:-nginx-proxy-manager_default}

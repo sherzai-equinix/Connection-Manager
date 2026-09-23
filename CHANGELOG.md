@@ -1,5 +1,15 @@
 # Aenderungsuebersicht
 
+## 2026-09-23 - Proxy-Anbindung
+
+- Die zusaetzliche Anbindung des Backends an ein externes Proxy-Docker-Netz
+  wurde entfernt. Der vorhandene Nginx Proxy Manager leitet weiterhin an
+  `fr2lxcops01.corp.equinix.com:8082` weiter; bei getrennten Hosts ist das
+  externe Docker-Netz keine Verbindung zwischen Proxy und Backend.
+- Bei einem HTTPS-Timeout den HTTP-Zugriff auf das Backend *aus dem Proxy-
+  Container* pruefen. Ein erfolgreicher Zugriff vom eigenen Rechner reicht
+  nicht aus, um den Netzwerkpfad des Proxys zu bestaetigen.
+
 ## 2026-09-22 - Login-Timeout
 
 - Login, Session-Prüfung und erzwungene Passwortänderung brechen nicht mehr
@@ -94,7 +104,7 @@
   Der Default ist `127.0.0.1:5433` **auf dem Docker-Host** statt einer Bindung an
   alle Netzwerkschnittstellen. Bestehende direkte DB-Zugriffe von anderen Rechnern
   benoetigen daher einen SSH-Tunnel oder eine bewusst konfigurierte Host-Bindung.
-- Die README beschreibt den tatsaechlichen pgAdmin-Start, den Update-Branch,
+- Die README beschreibt den tatsaechlichen pgAdmin-Start, den Deployment-Branch,
   lokale Frontend-Adressen und sichere Test-Deployments.
 - Wichtiger Hinweis zur Isolation: Der Stack nutzt feste Container-, Netzwerk-
   und Volume-Namen. Fuer einen parallelen Teststand mit dieser Compose-Datei
@@ -106,9 +116,9 @@
 ### Update ausprobieren
 
 1. Ein aktuelles Datenbank-Backup erstellen.
-2. Im Git-basierten Portainer-Stack den Branch
-   `sherzai-equinix-app-verbesserungen` auswaehlen und mit neuem Backend-Build
-   redeployen. Fuer einen parallelen Teststand einen getrennten Docker-Host nutzen.
+2. Im Git-basierten Portainer-Stack den Branch `main` auswaehlen und mit neuem
+   Backend-Build redeployen. Fuer einen parallelen Teststand einen getrennten
+   Docker-Host nutzen.
 3. Die Frontend-Seite mit Strg+F5 neu laden, damit die aktualisierten Scripts
    verwendet werden.
 4. Anmeldung mit/ohne "Angemeldet bleiben", Logout, ggf. den erzwungenen
