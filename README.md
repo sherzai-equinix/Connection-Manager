@@ -31,6 +31,7 @@ In Portainer werden sie unter **Environment Variables** beim Stack-Setup eingetr
 | `CORS_ORIGINS`      |         | `*`             | Erlaubte Origins (komma-separiert)    |
 | `API_PREFIX`        |         | `/api/v1`       | Fuer das mitgelieferte Frontend auf `/api/v1` belassen |
 | `BACKEND_PORT`      |         | `8082`          | Host-Port fuer das Backend            |
+| `PROXY_NETWORK`     |         | `nginx-proxy-manager_default` | Bestehendes Docker-Netz des Nginx Proxy Managers |
 | `DB_PORT`           |         | `127.0.0.1:5433` | Host-Adresse und Port fuer PostgreSQL |
 | `PGADMIN_EMAIL`     |         | `admin@local.dev` | pgAdmin Login-Email                |
 | `PGADMIN_PASSWORD`  |         | `admin`         | pgAdmin Login-Passwort                |
@@ -44,6 +45,7 @@ In Portainer werden sie unter **Environment Variables** beim Stack-Setup eingetr
 - Portainer laeuft auf der Ziel-VM
 - Docker und Docker Compose sind installiert
 - Das GitHub-Repository ist erreichbar (ggf. Access Token fuer private Repos)
+- Der Nginx Proxy Manager laeuft auf demselben Docker-Host und sein Netzwerk `nginx-proxy-manager_default` existiert bereits. Bei einem anderen Netzwerknamen `PROXY_NETWORK` entsprechend setzen; Docker Compose erstellt ein externes Netzwerk nicht selbst.
 
 ### Schritt fuer Schritt
 
@@ -56,6 +58,15 @@ In Portainer werden sie unter **Environment Variables** beim Stack-Setup eingetr
 7. **Deploy the stack** klicken
 
 Portainer baut das Backend-Image direkt aus dem Repo und startet alle Services.
+
+Das Backend bleibt fuer die Datenbank im Netzwerk `cm_net` und ist zusaetzlich
+mit dem externen Proxy-Netzwerk verbunden. Im Nginx Proxy Manager den Proxy Host
+fuer `tocry.corp.equinix.com` auf **Scheme `http`**, **Forward Hostname `cm_backend`**
+und **Forward Port `8000`** stellen. Der bisherige Hostname mit Port `8082`
+nutzt nicht die gemeinsame Docker-Verbindung. Der direkte Zugriff ueber
+`http://<VM-IP>:8082` bleibt moeglich. Wenn der Proxy auf einem anderen Docker-Host
+laeuft, funktioniert diese Netzwerkanbindung nicht; dann muss stattdessen
+die Erreichbarkeit des Host-Ports vom Proxy aus hergestellt werden.
 
 ### pgAdmin
 
