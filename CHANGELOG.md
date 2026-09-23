@@ -1,5 +1,13 @@
 # Aenderungsuebersicht
 
+## 2026-09-23 - Persistente Proxy-Netzwerkverbindung
+
+- Nach dem Test mit manuell verbundenem NPM-Netz wird das Backend wieder ueber
+  die Compose-Datei an das externe Netz `PROXY_NETWORK` angebunden. Dadurch
+  bleibt die Verbindung auch nach einem Portainer-Redeploy erhalten.
+- Der NPM-Proxy-Host bleibt unveraendert bei `fr2lxcops01.corp.equinix.com:8082`;
+  weder Datenbank noch pgAdmin werden an das Proxy-Netz angeschlossen.
+
 ## 2026-09-23 - Proxy-Anbindung
 
 - Die zusaetzliche Anbindung des Backends an ein externes Proxy-Docker-Netz
