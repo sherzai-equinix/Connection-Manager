@@ -6,6 +6,11 @@ Ziel:
 - keine Hardcodes über das Projekt verteilt
 - sinnvolle Defaults für lokale Entwicklung
 - alles per ENV überschreibbar
+
+Neu (2026-10):
+- DB-Pool-Parameter (DB_POOL_SIZE, DB_MAX_OVERFLOW, DB_POOL_RECYCLE,
+  DB_POOL_TIMEOUT, DB_CONNECT_RETRIES) für stabilen Mehrbenutzerbetrieb
+- LOG_LEVEL und APP_VERSION
 """
 
 from __future__ import annotations
@@ -14,7 +19,6 @@ import os
 from dataclasses import dataclass
 
 from dotenv import load_dotenv
-
 
 load_dotenv(override=False)
 
@@ -50,6 +54,20 @@ class Settings:
         "postgresql+psycopg2://deviceapp:SuperSecretPW@localhost:5432/devicedb",
     )
 
+    # DB-Pool (siehe database.py)
+    # 10 dauerhafte + 20 Burst-Verbindungen = max. 30 pro Backend-Prozess.
+    # Postgres im Compose-Stack erlaubt 100 – also genug Luft.
+    db_pool_size: int = _get_int_env("DB_POOL_SIZE", 10)
+    db_max_overflow: int = _get_int_env("DB_MAX_OVERFLOW", 20)
+    # Verbindungen nach 30 Min. erneuern (Firewalls/NAT trennen idle Sessions still)
+    db_pool_recycle: int = _get_int_env("DB_POOL_RECYCLE", 1800)
+    # Wie lange ein Request auf eine freie Verbindung wartet, bevor er mit
+    # einem sauberen Fehler statt endlosem Hängen abbricht
+    db_pool_timeout: int = _get_int_env("DB_POOL_TIMEOUT", 30)
+    # Startup: so oft (im 2-Sekunden-Takt) auf die DB warten, bevor der Prozess
+    # aufgibt. 30 = ca. 60 Sekunden – deckt einen Postgres-Neustart ab.
+    db_connect_retries: int = _get_int_env("DB_CONNECT_RETRIES", 30)
+
     # CORS
     cors_origins: tuple[str, ...] | None = _split_csv(os.getenv("CORS_ORIGINS"))
 
@@ -68,6 +86,10 @@ class Settings:
     # JWT Auth
     jwt_secret: str | None = os.getenv("JWT_SECRET")
     jwt_expire_hours: int = _get_int_env("JWT_EXPIRE_HOURS", 8)
+
+    # Betrieb
+    log_level: str = os.getenv("LOG_LEVEL", "info").lower()
+    app_version: str = os.getenv("APP_VERSION", "local")
 
 
 settings = Settings()

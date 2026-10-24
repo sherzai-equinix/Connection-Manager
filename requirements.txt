@@ -1,12 +1,20 @@
 # requirements.txt
+#
+# Installation ausschließlich über den Equinix Nexus PyPI-Mirror:
+#   pip install -r requirements.txt --index-url https://nexus.equinix.com/repository/pypi-mirror/simple/
+# (im Docker-Build und in CI über PIP_INDEX_URL gesetzt, lokal über pip.conf)
+#
+# Alle Versionen sind gepinnt – reproduzierbare Builds, keine stillen Updates.
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 sqlalchemy==2.0.23
 psycopg2-binary==2.9.9
 pydantic==2.5.0
 python-dotenv==1.0.0
-python-multipart
-openpyxl
+# gepinnt (vorher ungepinnt); 0.0.9 schließt den ReDoS-Fix aus 0.0.7+ ein
+python-multipart==0.0.9
+# gepinnt (vorher ungepinnt)
+openpyxl==3.1.2
 passlib[bcrypt]==1.7.4
 bcrypt<4
 python-jose[cryptography]==3.3.0
