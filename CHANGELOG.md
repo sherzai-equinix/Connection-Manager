@@ -1,42 +1,5 @@
 # Aenderungsuebersicht
 
-## 2026-10-23 - Design-Layer "Rack", Equinix-Registry, Mehrbenutzer-Stabilitaet
-
-### Oberflaeche
-- Neuer additiver Design-Layer `frontend/theme.css` + `frontend/theme.js`, wird
-  nach `styles.css` geladen. Bestehende Variablen werden auf eine neue Palette
-  umgeleitet; seitenspezifische Komponenten bleiben funktional unveraendert.
-- Navigation als "Patchpanel": aktive Seite leuchtet als LED, daneben eine
-  Status-LED des Backends (prueft `/health/ready` alle 30 Sekunden).
-- Strg+K oder "/" springt in das Suchfeld der aktuellen Seite.
-- Kein Strg+F5 mehr nach Updates: `/frontend/*` wird mit `Cache-Control:
-  no-cache` ausgeliefert und per ETag revalidiert.
-- `scripts/apply_theme.py` verdrahtet den Layer in alle Seiten (ausser
-  `login.html`); `tests/theme-layer.test.js` prueft das in CI.
-
-### Backend und Betrieb
-- DB-Pool fuer ~10 gleichzeitige Nutzer: 10 feste + 20 Burst-Verbindungen,
-  Recycle nach 30 Min., 30 s Wartezeit statt Haengen (`DB_POOL_*` in ENV).
-- Startup wartet bis zu 60 s auf die Datenbank; PP-Praefix-Bereinigungen
-  werden geloggt statt verschluckt.
-- `/health` (Liveness) und `/health/ready` (DB-Check) ohne Login fuer
-  Docker-/Portainer-Healthchecks. GZip, Security-Header, Logging langsamer
-  Requests (> 2 s). Doppelter `/`-Handler entfernt, Uebersicht unter `/api`.
-- Dockerfile: InfoSec-Base-Image und Nexus-PyPI-Mirror (Equinix-Vorgabe),
-  Multi-Stage, non-root, ohne gcc/apt. Compose: Registry-Images per ENV,
-  Backend-Healthcheck, Memory-Limits, Log-Rotation, pgAdmin nur mit Profil
-  `tools`. Container-, Volume- und Netzwerknamen unveraendert.
-- `python-multipart` und `openpyxl` gepinnt.
-
-### Update ausprobieren
-1. Datenbank-Backup erstellen.
-2. In Portainer `BASE_IMAGE` und `POSTGRES_IMAGE` auf Images aus
-   `appsec.docker.equinix.com` setzen, dann Pull and redeploy mit Neu-Build.
-3. `cm_backend` muss `healthy` werden; LED unten im Frontend gruen.
-4. Mit mehreren Kollegen gleichzeitig Suche, Export und Sperren testen.
-
-Keine SQL-Migration noetig. Keine Volumes loeschen.
-
 ## 2026-09-23 - Persistente Proxy-Netzwerkverbindung
 
 - Nach dem Test mit manuell verbundenem NPM-Netz wird das Backend wieder ueber

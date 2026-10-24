@@ -1,48 +1,12 @@
-# ------------------------------------------------------------------------------
-# Connection Manager – Portainer Stack
-#
-# Container-, Netzwerk- und Volume-Namen sind UNVERÄNDERT (cm_postgres,
-# cm_backend, cm_pgadmin, connection_manager_postgres_data, cm_net), damit ein
-# "Pull and redeploy" die bestehende Datenbank behält.
-#
-# Equinix-Registry-Vorgabe: Alle Images kommen aus appsec.docker.equinix.com
-# (gepinnt). Die exakten Pfade/Tags in Portainer als Stack-Variablen setzen:
-#   BASE_IMAGE      -> Python-Base für das Backend-Build
-#   POSTGRES_IMAGE  -> PostgreSQL 17
-#   PGADMIN_IMAGE   -> pgAdmin (nur mit Profil "tools")
-# Die Defaults unten sind Platzhalter-Beispiele und müssen gegen den
-# tatsächlichen Katalog der InfoSec-Registry geprüft werden.
-# ------------------------------------------------------------------------------
-
-x-logging: &default-logging
-  driver: json-file
-  options:
-    max-size: "20m"
-    max-file: "5"
-
 services:
+
   db:
-    image: ${POSTGRES_IMAGE:-appsec.docker.equinix.com/infosec/postgres:17}
+    image: postgres:17
     container_name: cm_postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-devicedb}
       POSTGRES_USER: ${POSTGRES_USER:-deviceapp}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Setze POSTGRES_PASSWORD in Portainer}
-    # Konservative Postgres-Werte für ein kleines Team (~10 Nutzer): mehr
-    # Verbindungen als der Backend-Pool je öffnen kann, etwas mehr Cache und
-    # Logging langsamer Abfragen (> 2s) für die Fehlersuche. Bewusst KEIN
-    # statement_timeout – das würde pg_restore großer Backups abbrechen.
-    command:
-      - postgres
-      - -c
-      - max_connections=100
-      - -c
-      - shared_buffers=256MB
-      - -c
-      - work_mem=8MB
-      - -c
-      - log_min_duration_statement=2000
-    shm_size: 256mb
     volumes:
       - cm_pgdata:/var/lib/postgresql/data
     ports:
@@ -50,44 +14,23 @@ services:
     networks:
       - cm_net
     restart: unless-stopped
-    stop_grace_period: 30s
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-deviceapp} -d ${POSTGRES_DB:-devicedb}"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 20s
-    deploy:
-      resources:
-        limits:
-          memory: 1g
-    logging: *default-logging
 
   backend:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        BASE_IMAGE: ${BASE_IMAGE:-appsec.docker.equinix.com/infosec/python:3.11-slim}
-        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://nexus.equinix.com/repository/pypi-mirror/simple/}
-    image: connection-manager/backend:${APP_VERSION:-local}
     container_name: cm_backend
-    init: true
     environment:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-deviceapp}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-devicedb}
       JWT_SECRET: ${JWT_SECRET:?Setze JWT_SECRET in Portainer}
       JWT_EXPIRE_HOURS: ${JWT_EXPIRE_HOURS:-8}
       CORS_ORIGINS: ${CORS_ORIGINS:-*}
       API_PREFIX: ${API_PREFIX:-/api/v1}
-      # DB-Pool: 10 dauerhafte + 20 Burst-Verbindungen reichen für ~10 gleichzeitige
-      # Nutzer inkl. Excel-Export und Live-Collaboration. Postgres oben erlaubt 100.
-      DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
-      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-20}
-      DB_POOL_RECYCLE: ${DB_POOL_RECYCLE:-1800}
-      DB_POOL_TIMEOUT: ${DB_POOL_TIMEOUT:-30}
-      DB_CONNECT_RETRIES: ${DB_CONNECT_RETRIES:-30}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
-      APP_VERSION: ${APP_VERSION:-local}
     ports:
       - "${BACKEND_PORT:-8082}:8000"
     depends_on:
@@ -97,47 +40,26 @@ services:
       - cm_net
       - proxy_net
     restart: unless-stopped
-    stop_grace_period: 20s
-    healthcheck:
-      test: ["CMD", "python", "-c", "import sys,urllib.request;r=urllib.request.urlopen('http://127.0.0.1:8000/health/ready',timeout=4);sys.exit(0 if r.status==200 else 1)"]
-      interval: 30s
-      timeout: 6s
-      retries: 3
-      start_period: 40s
-    deploy:
-      resources:
-        limits:
-          memory: 768m
-    logging: *default-logging
 
-  # pgAdmin ist ein Admin-Werkzeug, kein Teil der App. Es startet nur noch, wenn
-  # in Portainer die Stack-Variable COMPOSE_PROFILES=tools gesetzt ist.
-  # Bitte auch hier NUR ein Image aus appsec.docker.equinix.com verwenden.
   pgadmin:
-    profiles: ["tools"]
-    image: ${PGADMIN_IMAGE:-appsec.docker.equinix.com/infosec/pgadmin4:8}
+    build:
+      context: .
+      dockerfile: Dockerfile.pgadmin
     container_name: cm_pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@local.dev}
-      # Vor dem Aktivieren des Profils ein eigenes PGADMIN_PASSWORD setzen!
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-change-me-before-enabling}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
       PGADMIN_LISTEN_ADDRESS: 0.0.0.0
       PGADMIN_LISTEN_PORT: 8080
     volumes:
       - cm_pgadmin_data:/var/lib/pgadmin
     ports:
-      - "${PGADMIN_PORT:-127.0.0.1:5051}:8080"
+      - "${PGADMIN_PORT:-5051}:8080"
     depends_on:
-      db:
-        condition: service_healthy
+      - db
     networks:
       - cm_net
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512m
-    logging: *default-logging
 
 volumes:
   cm_pgdata:
